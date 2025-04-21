@@ -40,7 +40,7 @@ interface Subject {
 interface Exam {
   id: string
   title: string
-  courseCode: string
+  courseCode?: string
   date: string
   startTime: string
   endTime: string
@@ -487,7 +487,7 @@ export function ExamsList({ exams, userRole }: ExamsListProps) {
                 <TableCell>{exam.location}</TableCell>
                 <TableCell>
                   {exam.subjects && exam.subjects.length > 0
-                    ? exam.subjects.map((subject) => subject.code).join(", ")
+                    ? exam.subjects.map((subject) => subject.name).join(", ")
                     : "None"}
                 </TableCell>
                 {userRole === "ADMIN" && <TableCell>{exam.invigilator?.name || "Not assigned"}</TableCell>}

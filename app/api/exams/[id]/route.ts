@@ -9,7 +9,7 @@ import { exams } from "@/lib/db/schema"
 const examUpdateSchema = z.object({
   title: z.string().min(2).optional(),
   courseCode: z.string().min(2).optional(),
-  date: z.coerce.date(),
+  date: z.coerce.date().optional(),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
   location: z.string().min(2).optional(),
@@ -27,18 +27,6 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const exam = await db.query.exams.findFirst({
       where: eq(exams.id, params.id),
-      with: {
-        invigilator:
-          session.user.role === "ADMIN"
-            ? {
-                columns: {
-                  id: true,
-                  name: true,
-                  email: true,
-                },
-              }
-            : undefined,
-      },
     })
 
     if (!exam) {

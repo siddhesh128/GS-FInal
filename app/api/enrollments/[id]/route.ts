@@ -1,9 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { eq } from "drizzle-orm"
+import { eq, and } from "drizzle-orm"
 
 import { getSession } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { enrollments } from "@/lib/db/schema"
+
+// Helper to parse composite key from params.id
+function parseEnrollmentId(id: string) {
+  const [examId, studentId] = id.split("_")
+  return { examId, studentId }
+}
 
 // GET a single enrollment by ID
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
@@ -14,8 +20,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 })
     }
 
+    const { examId, studentId } = parseEnrollmentId(params.id)
+
     const enrollment = await db.query.enrollments.findFirst({
-      where: eq(enrollments.id, params.id),
+      where: (enrollments, { eq, and }) => and(eq(enrollments.examId, examId), eq(enrollments.studentId, studentId)),
       with: {
         exam: true,
         student: {
@@ -54,9 +62,11 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ message: "Unauthorized" }, { status: 403 })
     }
 
+    const { examId, studentId } = parseEnrollmentId(params.id)
+
     // Get the enrollment
     const enrollment = await db.query.enrollments.findFirst({
-      where: eq(enrollments.id, params.id),
+      where: (enrollments, { eq, and }) => and(eq(enrollments.examId, examId), eq(enrollments.studentId, studentId)),
     })
 
     if (!enrollment) {
@@ -74,7 +84,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // Delete enrollment
-    await db.delete(enrollments).where(eq(enrollments.id, params.id))
+    await db.delete(enrollments).where(
+      and(
+        eq(enrollments.examId, examId),
+        eq(enrollments.studentId, studentId)
+      )
+    )
 
     return NextResponse.json({ message: "Enrollment deleted successfully" }, { status: 200 })
   } catch (error) {

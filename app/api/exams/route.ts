@@ -26,7 +26,6 @@ export async function GET(request: NextRequest) {
     let examsList: any[] = []
 
     if (session.user.role === "ADMIN") {
-      // Admins can see all exams - use simpler query structure
       const examsData = await db.query.exams.findMany({
         orderBy: (exams, { desc }) => [desc(exams.date)],
         with: {
@@ -39,63 +38,71 @@ export async function GET(request: NextRequest) {
           },
         },
       })
-      
-      // Fetch subjects separately for each exam
       for (const exam of examsData) {
         const subjectData = await db.query.examSubjects.findMany({
           where: (es, { eq }) => eq(es.examId, exam.id),
-          with: {
-            subject: true,
-          },
+          with: { subject: true },
         })
-        
+        let invigilator = null
+        if (exam.invigilatorId) {
+          invigilator = await db.query.users.findFirst({
+            where: (users, { eq }) => eq(users.id, exam.invigilatorId as string),
+            columns: { id: true, name: true, email: true },
+          })
+        }
         examsList.push({
           ...exam,
+          invigilator,
           subjects: subjectData.map(es => es.subject),
         })
       }
     } else if (session.user.role === "FACULTY") {
-      // Faculty can see exams they created
       const examsData = await db.query.exams.findMany({
         where: (exams, { eq }) => eq(exams.createdBy, session.user.id),
         orderBy: (exams, { desc }) => [desc(exams.date)],
       })
-      
-      // Fetch subjects separately for each exam
       for (const exam of examsData) {
         const subjectData = await db.query.examSubjects.findMany({
           where: (es, { eq }) => eq(es.examId, exam.id),
-          with: {
-            subject: true,
-          },
+          with: { subject: true },
         })
-        
+        let invigilator = null
+        if (exam.invigilatorId) {
+          invigilator = await db.query.users.findFirst({
+            where: (users, { eq }) => eq(users.id, exam.invigilatorId as string),
+            columns: { id: true, name: true, email: true },
+          })
+        }
         examsList.push({
           ...exam,
+          invigilator,
           subjects: subjectData.map(es => es.subject),
         })
       }
     } else {
-      // Students can see exams they're enrolled in
       const enrollments = await db.query.enrollments.findMany({
         where: (enrollments, { eq }) => eq(enrollments.studentId, session.user.id),
         with: {
           exam: true,
         },
       })
-
-      // Fetch subjects separately for each exam
       for (const enrollment of enrollments) {
         const exam = enrollment.exam
+        if (!exam) continue
         const subjectData = await db.query.examSubjects.findMany({
           where: (es, { eq }) => eq(es.examId, exam.id),
-          with: {
-            subject: true,
-          },
+          with: { subject: true },
         })
-        
+        let invigilator = null
+        if (exam.invigilatorId) {
+          invigilator = await db.query.users.findFirst({
+            where: (users, { eq }) => eq(users.id, exam.invigilatorId as string),
+            columns: { id: true, name: true, email: true },
+          })
+        }
         examsList.push({
           ...exam,
+          invigilator,
           subjects: subjectData.map(es => es.subject),
         })
       }

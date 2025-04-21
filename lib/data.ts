@@ -1,11 +1,12 @@
 import { db } from "./db"
+import { examSubjects } from "./db/schema"
 
 // Get exams based on user role and ID
 export async function getExams(userId: string, role: string) {
   try {
     if (role === "ADMIN") {
       // Admins can see all exams
-      return await db.query.exams.findMany({
+      const examsData = await db.query.exams.findMany({
         orderBy: (exams, { desc }) => [desc(exams.date)],
         with: {
           creator: {
@@ -17,12 +18,42 @@ export async function getExams(userId: string, role: string) {
           },
         },
       })
+      // Fetch subjects for each exam
+      const examsWithSubjects = await Promise.all(
+        examsData.map(async (exam) => {
+          const subjectData = await db.query.examSubjects.findMany({
+            where: (es, { eq }) => eq(es.examId, exam.id),
+            with: { subject: true },
+          })
+          return {
+            ...exam,
+            courseCode: exam.description || "", // Ensure courseCode is always a string
+            subjects: subjectData.map((es) => es.subject),
+          }
+        })
+      )
+      return examsWithSubjects
     } else if (role === "FACULTY") {
       // Faculty can see exams they're assigned to invigilate
-      return await db.query.exams.findMany({
+      const examsData = await db.query.exams.findMany({
         where: (exams, { eq }) => eq(exams.createdBy, userId),
         orderBy: (exams, { desc }) => [desc(exams.date)],
       })
+      // Fetch subjects for each exam
+      const examsWithSubjects = await Promise.all(
+        examsData.map(async (exam) => {
+          const subjectData = await db.query.examSubjects.findMany({
+            where: (es, { eq }) => eq(es.examId, exam.id),
+            with: { subject: true },
+          })
+          return {
+            ...exam,
+            courseCode: exam.description || "", // Ensure courseCode is always a string
+            subjects: subjectData.map((es) => es.subject),
+          }
+        })
+      )
+      return examsWithSubjects
     } else {
       // Students can see exams they're enrolled in
       const enrollments = await db.query.enrollments.findMany({
@@ -31,8 +62,22 @@ export async function getExams(userId: string, role: string) {
           exam: true,
         },
       })
-
-      return enrollments.map((enrollment) => enrollment.exam)
+      // Fetch subjects for each exam
+      const examsWithSubjects = await Promise.all(
+        enrollments.map(async (enrollment) => {
+          const exam = enrollment.exam
+          const subjectData = await db.query.examSubjects.findMany({
+            where: (es, { eq }) => eq(es.examId, exam.id),
+            with: { subject: true },
+          })
+          return {
+            ...exam,
+            courseCode: exam.description || "", // Ensure courseCode is always a string
+            subjects: subjectData.map((es) => es.subject),
+          }
+        })
+      )
+      return examsWithSubjects
     }
   } catch (error) {
     console.error("Error fetching exams:", error)

@@ -90,7 +90,7 @@ export const exams = pgTable("exams", {
   startTime: text("start_time").notNull(),
   endTime: text("end_time").notNull(),
   location: text("location"),
-  createdBy: uuid("created_by")
+  invigilatorId: uuid("invigilator_id").references(() => users.id, { onDelete: "set null" }),   createdBy: uuid("created_by")
     .notNull()
     .references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
