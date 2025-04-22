@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Calendar, FileText, Home, type LucideIcon, MapPin, UserCheck, UserPlus, Users } from "lucide-react"
+import { Calendar, FileText, Home, type LucideIcon, MapPin, UserCheck, UserPlus, Users, BookOpen, Building, CheckSquare } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -55,6 +55,36 @@ const navItems: NavItem[] = [
     href: "/dashboard/users",
     icon: Users,
     roles: ["ADMIN"],
+  },
+  {
+    title: "Subjects",
+    href: "/dashboard/subjects",
+    icon: BookOpen,
+    roles: ["ADMIN"],
+  },
+  {
+    title: "Buildings & Rooms",
+    href: "/dashboard/buildings",
+    icon: Building,
+    roles: ["ADMIN"],
+  },
+  {
+    title: "Seating Overview",
+    href: "/dashboard/seating-view",
+    icon: MapPin,
+    roles: ["ADMIN"],
+  },
+  {
+    title: "Attendance",
+    href: "/dashboard/attendance",
+    icon: CheckSquare,
+    roles: ["ADMIN", "FACULTY"],
+  },
+  {
+    title: "Results",
+    href: "/dashboard/results",
+    icon: FileText,
+    roles: ["ADMIN", "STUDENT"],
   },
 ]
 
