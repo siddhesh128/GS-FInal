@@ -60,6 +60,13 @@ export async function GET(request: NextRequest) {
             building: true,
           },
         },
+        invigilator: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+          }
+        }
       },
       offset,
       limit: pageSize,

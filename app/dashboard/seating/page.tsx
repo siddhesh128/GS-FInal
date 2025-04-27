@@ -27,10 +27,25 @@ export default async function SeatingPage() {
         where: (rooms, { eq }) => eq(rooms.id, arrangement.roomId),
       })
       
+      // Get invigilator data if available
+      let invigilatorData = null
+      if (arrangement.invigilatorId) {
+        invigilatorData = await db.query.users.findFirst({
+          where: (users, { eq }) => eq(users.id, arrangement.invigilatorId as string),
+          columns: {
+            id: true,
+            name: true,
+            email: true
+          },
+        })
+      }
+      
       // Add the roomNumber property and format date as string
       return {
         ...arrangement,
         roomNumber: roomData?.roomNumber || "Unknown",
+        invigilator: invigilatorData ?? undefined, // Map null to undefined
+        invigilatorId: arrangement.invigilatorId ?? undefined, // Map null to undefined
         exam: {
           ...arrangement.exam,
           // Ensure location is never null to match SeatingData type

@@ -52,10 +52,16 @@ interface SeatingArrangement {
   studentId: string
   roomId: string
   seatNumber: string
+  invigilatorId?: string
   exam: Exam
-  subject: Subject
+  subject: Subject | null
   student: Student
   room: Room
+  invigilator?: {
+    id: string
+    name: string
+    email: string
+  } | null
 }
 
 interface SeatingViewProps {
@@ -139,27 +145,36 @@ export function SeatingView({ initialSeatingArrangements, exams, subjects, build
 
   const handleExportCSV = () => {
     // Create CSV content
-    const headers = ["Exam", "Date", "Subject", "Student Name", "Student Email", "Building", "Room", "Floor", "Seat"]
+    const headers = ["Exam", "Date", "Subject", "Student Name", "Student Email", "Building", "Room", "Floor", "Seat", "Invigilator Name", "Invigilator Email"]
 
     const rows = filteredArrangements.map((arrangement) => [
       arrangement.exam.title,
       format(new Date(arrangement.exam.date), "yyyy-MM-dd"),
-      `${arrangement.subject.name} (${arrangement.subject.code})`,
+      arrangement.subject ? `${arrangement.subject.name} (${arrangement.subject.code})` : "N/A",
       arrangement.student.name,
       arrangement.student.email,
       `${arrangement.room.building.name} (${arrangement.room.building.number})`,
       arrangement.room.roomNumber,
       arrangement.room.floor,
       arrangement.seatNumber,
+      arrangement.invigilator ? arrangement.invigilator.name : "N/A",
+      arrangement.invigilator ? arrangement.invigilator.email : "N/A",
     ])
-
-    const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${cell}"`).join(","))].join("\n")
-
-    // Create and download the file
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const url = URL.createObjectURL(blob)
+    const csvContent =
+      [headers, ...rows]
+        .map((row) =>
+          row
+            .map((cell) =>
+              typeof cell === "string" && (cell.includes(",") || cell.includes('"') || cell.includes("\n"))
+                ? `"${cell.replace(/"/g, '""')}"`
+                : cell
+            )
+            .join(",")
+        )
+        .join("\n")
+    const blob = new Blob([csvContent], { type: "text/csv" })
     const link = document.createElement("a")
-    link.setAttribute("href", url)
+    link.href = URL.createObjectURL(blob)
     link.setAttribute("download", `seating-arrangements-${new Date().toISOString().split("T")[0]}.csv`)
     document.body.appendChild(link)
     link.click()
@@ -310,6 +325,7 @@ export function SeatingView({ initialSeatingArrangements, exams, subjects, build
                   <TableHead>Room</TableHead>
                   <TableHead>Floor</TableHead>
                   <TableHead>Seat</TableHead>
+                  <TableHead>Invigilator</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -318,7 +334,11 @@ export function SeatingView({ initialSeatingArrangements, exams, subjects, build
                     <TableCell>{arrangement.exam.title}</TableCell>
                     <TableCell>{format(new Date(arrangement.exam.date), "PPP")}</TableCell>
                     <TableCell>
-                      {arrangement.subject.name} ({arrangement.subject.code})
+                      {arrangement.subject ? (
+                        `${arrangement.subject.name} (${arrangement.subject.code})`
+                      ) : (
+                        "N/A"
+                      )}
                     </TableCell>
                     <TableCell>
                       <div>
@@ -332,6 +352,16 @@ export function SeatingView({ initialSeatingArrangements, exams, subjects, build
                     <TableCell>{arrangement.room.roomNumber}</TableCell>
                     <TableCell>{arrangement.room.floor}</TableCell>
                     <TableCell>{arrangement.seatNumber}</TableCell>
+                    <TableCell>
+                      {arrangement.invigilator ? (
+                        <div>
+                          <div className="font-medium">{arrangement.invigilator.name}</div>
+                          <div className="text-sm text-muted-foreground">{arrangement.invigilator.email}</div>
+                        </div>
+                      ) : (
+                        "N/A"
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -90,7 +90,7 @@ export const exams = pgTable("exams", {
   startTime: text("start_time").notNull(),
   endTime: text("end_time").notNull(),
   location: text("location"),
-  invigilatorId: uuid("invigilator_id").references(() => users.id, { onDelete: "set null" }),   createdBy: uuid("created_by")
+  createdBy: uuid("created_by")
     .notNull()
     .references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -180,6 +180,7 @@ export const seatingArrangements = pgTable("seating_arrangements", {
     .notNull()
     .references(() => rooms.id, { onDelete: "cascade" }),
   seatNumber: text("seat_number").notNull(),
+  invigilatorId: uuid("invigilator_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
@@ -201,6 +202,10 @@ export const seatingArrangementsRelations = relations(seatingArrangements, ({ on
   room: one(rooms, {
     fields: [seatingArrangements.roomId],
     references: [rooms.id],
+  }),
+  invigilator: one(users, {
+    fields: [seatingArrangements.invigilatorId],
+    references: [users.id],
   }),
 }))
 

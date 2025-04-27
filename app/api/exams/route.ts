@@ -43,16 +43,8 @@ export async function GET(request: NextRequest) {
           where: (es, { eq }) => eq(es.examId, exam.id),
           with: { subject: true },
         })
-        let invigilator = null
-        if (exam.invigilatorId) {
-          invigilator = await db.query.users.findFirst({
-            where: (users, { eq }) => eq(users.id, exam.invigilatorId as string),
-            columns: { id: true, name: true, email: true },
-          })
-        }
         examsList.push({
           ...exam,
-          invigilator,
           subjects: subjectData.map(es => es.subject),
         })
       }
@@ -66,16 +58,8 @@ export async function GET(request: NextRequest) {
           where: (es, { eq }) => eq(es.examId, exam.id),
           with: { subject: true },
         })
-        let invigilator = null
-        if (exam.invigilatorId) {
-          invigilator = await db.query.users.findFirst({
-            where: (users, { eq }) => eq(users.id, exam.invigilatorId as string),
-            columns: { id: true, name: true, email: true },
-          })
-        }
         examsList.push({
           ...exam,
-          invigilator,
           subjects: subjectData.map(es => es.subject),
         })
       }
@@ -93,16 +77,8 @@ export async function GET(request: NextRequest) {
           where: (es, { eq }) => eq(es.examId, exam.id),
           with: { subject: true },
         })
-        let invigilator = null
-        if (exam.invigilatorId) {
-          invigilator = await db.query.users.findFirst({
-            where: (users, { eq }) => eq(users.id, exam.invigilatorId as string),
-            columns: { id: true, name: true, email: true },
-          })
-        }
         examsList.push({
           ...exam,
-          invigilator,
           subjects: subjectData.map(es => es.subject),
         })
       }

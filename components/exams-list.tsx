@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
-import { PlusCircle, UserPlus } from "lucide-react"
+import { PlusCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -21,7 +21,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -45,12 +44,6 @@ interface Exam {
   startTime: string
   endTime: string
   location: string
-  invigilatorId?: string
-  invigilator?: {
-    id: string
-    name: string
-    email: string
-  }
   subjects?: Subject[]
 }
 
@@ -64,13 +57,8 @@ export function ExamsList({ exams, userRole }: ExamsListProps) {
   const { toast } = useToast()
   const [isEnrolling, setIsEnrolling] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
-  const [isAssigningInvigilator, setIsAssigningInvigilator] = useState(false)
   const [open, setOpen] = useState(false)
-  const [invigilatorDialogOpen, setInvigilatorDialogOpen] = useState(false)
-  const [selectedExamId, setSelectedExamId] = useState<string | null>(null)
-  const [facultyUsers, setFacultyUsers] = useState<User[]>([])
   const [subjects, setSubjects] = useState<Subject[]>([])
-  const [selectedInvigilatorId, setSelectedInvigilatorId] = useState<string>("")
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([])
   const [newExam, setNewExam] = useState({
     title: "",
@@ -80,30 +68,6 @@ export function ExamsList({ exams, userRole }: ExamsListProps) {
     endTime: "",
     location: "",
   })
-
-  // Fetch faculty users for invigilator assignment
-  useEffect(() => {
-    if (userRole === "ADMIN" && invigilatorDialogOpen) {
-      const fetchFacultyUsers = async () => {
-        try {
-          const response = await fetch("/api/users?role=FACULTY")
-          if (!response.ok) {
-            throw new Error("Failed to fetch faculty users")
-          }
-          const data = await response.json()
-          setFacultyUsers(data)
-        } catch (error) {
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Failed to load faculty users",
-          })
-        }
-      }
-
-      fetchFacultyUsers()
-    }
-  }, [invigilatorDialogOpen, userRole, toast])
 
   // Fetch subjects when creating a new exam
   useEffect(() => {
@@ -222,59 +186,6 @@ export function ExamsList({ exams, userRole }: ExamsListProps) {
     } finally {
       setIsCreating(false)
     }
-  }
-
-  const handleAssignInvigilator = async () => {
-    if (!selectedExamId || !selectedInvigilatorId) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please select an invigilator",
-      })
-      return
-    }
-
-    setIsAssigningInvigilator(true)
-
-    try {
-      const response = await fetch(`/api/exams/${selectedExamId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          invigilatorId: selectedInvigilatorId,
-        }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.message || "Failed to assign invigilator")
-      }
-
-      toast({
-        title: "Invigilator assigned",
-        description: "The invigilator has been assigned successfully",
-      })
-
-      setInvigilatorDialogOpen(false)
-      setSelectedExamId(null)
-      setSelectedInvigilatorId("")
-      router.refresh()
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Failed to assign invigilator",
-        description: error instanceof Error ? error.message : "Something went wrong",
-      })
-    } finally {
-      setIsAssigningInvigilator(false)
-    }
-  }
-
-  const openInvigilatorDialog = (examId: string) => {
-    setSelectedExamId(examId)
-    setInvigilatorDialogOpen(true)
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -418,40 +329,6 @@ export function ExamsList({ exams, userRole }: ExamsListProps) {
         </div>
       )}
 
-      {/* Invigilator Assignment Dialog */}
-      <Dialog open={invigilatorDialogOpen} onOpenChange={setInvigilatorDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Assign Invigilator</DialogTitle>
-            <DialogDescription>Select a faculty member to invigilate this exam</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="invigilator" className="text-right">
-                Invigilator
-              </Label>
-              <Select onValueChange={setSelectedInvigilatorId}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select faculty member" />
-                </SelectTrigger>
-                <SelectContent>
-                  {facultyUsers.map((faculty) => (
-                    <SelectItem key={faculty.id} value={faculty.id}>
-                      {faculty.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="submit" onClick={handleAssignInvigilator} disabled={isAssigningInvigilator}>
-              {isAssigningInvigilator ? "Assigning..." : "Assign Invigilator"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {exams.length === 0 ? (
         <div className="rounded-md border border-dashed p-8 text-center">
           <h3 className="text-lg font-medium">No exams found</h3>
@@ -473,7 +350,6 @@ export function ExamsList({ exams, userRole }: ExamsListProps) {
               <TableHead>Time</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>Subjects</TableHead>
-              {userRole === "ADMIN" && <TableHead>Invigilator</TableHead>}
               <TableHead>Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -490,19 +366,11 @@ export function ExamsList({ exams, userRole }: ExamsListProps) {
                     ? exam.subjects.map((subject) => subject.name).join(", ")
                     : "None"}
                 </TableCell>
-                {userRole === "ADMIN" && <TableCell>{exam.invigilator?.name || "Not assigned"}</TableCell>}
                 <TableCell>
-                  {userRole === "STUDENT" ? (
+                  {userRole === "STUDENT" && (
                     <Button variant="outline" size="sm" onClick={() => handleEnroll(exam.id)} disabled={isEnrolling}>
                       {isEnrolling ? "Enrolling..." : "Enroll"}
                     </Button>
-                  ) : (
-                    userRole === "ADMIN" && (
-                      <Button variant="outline" size="sm" onClick={() => openInvigilatorDialog(exam.id)}>
-                        <UserPlus className="mr-2 h-4 w-4" />
-                        Assign Invigilator
-                      </Button>
-                    )
                   )}
                 </TableCell>
               </TableRow>

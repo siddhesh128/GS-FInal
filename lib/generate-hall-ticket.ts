@@ -9,6 +9,8 @@ interface SubjectSeating {
   buildingNumber: string
   floor: string
   seatNumber: string
+  invigilatorName: string
+  invigilatorEmail: string
 }
 
 interface HallTicketData {

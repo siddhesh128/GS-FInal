@@ -16,9 +16,18 @@ export default async function SeatingViewPage() {
   }
 
   // Get all exams for filtering
-  const exams = await db.query.exams.findMany({
+  const rawExams = await db.query.exams.findMany({
     orderBy: (exams, { desc }) => [desc(exams.date)],
   })
+
+  // Transform exams data to match the expected types
+  const exams = rawExams.map(exam => ({
+    ...exam,
+    date: exam.date.toISOString(),
+    location: exam.location || "", // Ensure location is never null
+    createdAt: exam.createdAt.toISOString(),
+    updatedAt: exam.updatedAt.toISOString(),
+  }))
 
   // Get all subjects for filtering
   const subjects = await db.query.subjects.findMany({
@@ -31,7 +40,7 @@ export default async function SeatingViewPage() {
   })
 
   // Get a limited set of seating arrangements for initial view
-  const seatingArrangements = await db.query.seatingArrangements.findMany({
+  const rawSeatingArrangements = await db.query.seatingArrangements.findMany({
     with: {
       exam: true,
       subject: true,
@@ -45,6 +54,30 @@ export default async function SeatingViewPage() {
     orderBy: (seatingArrangements, { desc }) => [desc(seatingArrangements.createdAt)],
     limit: 100, // Limit initial load
   })
+
+  // Transform seating arrangements to match the expected types
+  const seatingArrangements = rawSeatingArrangements.map(arr => ({
+    ...arr,
+    subjectId: arr.subjectId || "", // Ensure subjectId is never null
+    invigilatorId: arr.invigilatorId || "", // Ensure invigilatorId is never null
+    subject: arr.subject || {
+      id: "",
+      name: "",
+      code: "",
+      description: "",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    exam: {
+      ...arr.exam,
+      date: arr.exam.date.toISOString(),
+      location: arr.exam.location || "",
+      createdAt: arr.exam.createdAt.toISOString(),
+      updatedAt: arr.exam.updatedAt.toISOString(),
+    },
+    createdAt: arr.createdAt.toISOString(),
+    updatedAt: arr.updatedAt.toISOString(),
+  }))
 
   return (
     <div className="space-y-6">

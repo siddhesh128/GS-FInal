@@ -100,6 +100,13 @@ export async function getSeatingArrangements(userId: string, role: string) {
               email: true,
             },
           },
+          invigilator: {
+            columns: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
       })
     } else if (role === "STUDENT") {
@@ -108,6 +115,13 @@ export async function getSeatingArrangements(userId: string, role: string) {
         where: (seatingArrangements, { eq }) => eq(seatingArrangements.studentId, userId),
         with: {
           exam: true,
+          invigilator: {
+            columns: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
       })
     }
@@ -139,6 +153,13 @@ export async function getHallTickets(studentId: string) {
             and(eq(sa.examId, enrollment.examId), eq(sa.studentId, studentId)),
           with: {
             room: true,
+            invigilator: {
+              columns: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
           },
         })
 
@@ -154,6 +175,8 @@ export async function getHallTickets(studentId: string) {
           location: enrollment.exam.location,
           roomNumber: seatingArrangement?.room.roomNumber || "Not assigned",
           seatNumber: seatingArrangement?.seatNumber || "Not assigned",
+          invigilatorName: seatingArrangement?.invigilator?.name || "Not assigned",
+          invigilatorEmail: seatingArrangement?.invigilator?.email || "",
           status: seatingArrangement ? "Ready for download" : "Pending seating assignment",
         }
       })

@@ -41,6 +41,7 @@ interface SeatingData {
   studentId: string
   roomNumber: string
   seatNumber: string
+  invigilatorId?: string
   exam: {
     id: string
     title: string
@@ -50,6 +51,11 @@ interface SeatingData {
     location: string
   }
   student?: {
+    id: string
+    name: string
+    email: string
+  }
+  invigilator?: {
     id: string
     name: string
     email: string
@@ -272,6 +278,7 @@ export function SeatingArrangement({ data, userRole }: SeatingArrangementProps) 
               <TableHead>Time</TableHead>
               <TableHead>Room</TableHead>
               <TableHead>Seat</TableHead>
+              <TableHead>Invigilator</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -283,6 +290,7 @@ export function SeatingArrangement({ data, userRole }: SeatingArrangementProps) 
                 <TableCell>{`${item.exam.startTime} - ${item.exam.endTime}`}</TableCell>
                 <TableCell>{item.roomNumber}</TableCell>
                 <TableCell>{item.seatNumber}</TableCell>
+                <TableCell>{item.invigilator ? item.invigilator.name : "Not assigned"}</TableCell>
               </TableRow>
             ))}
           </TableBody>
