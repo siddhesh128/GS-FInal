@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
-import { PlusCircle, Trash2 } from "lucide-react"
+import { PlusCircle, Trash2, UserPlus, UsersRound } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -15,16 +15,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/components/ui/use-toast"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface Student {
   id: string
   name: string
   email: string
+  department?: string
+  year?: string
 }
 
 interface Exam {
@@ -68,6 +72,12 @@ export function EnrollmentManager({ enrollments: initialEnrollments }: Enrollmen
   })
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [bulkMode, setBulkMode] = useState(false)
+  const [batchEnrollment, setBatchEnrollment] = useState({
+    examId: "",
+    department: "",
+    year: ""
+  })
+  const [isBatchEnrolling, setIsBatchEnrolling] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -208,6 +218,63 @@ export function EnrollmentManager({ enrollments: initialEnrollments }: Enrollmen
     }
   }
 
+  const handleBatchEnrollment = async () => {
+    if (!batchEnrollment.examId || !batchEnrollment.department || !batchEnrollment.year) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please fill in all fields",
+      })
+      return
+    }
+
+    setIsBatchEnrolling(true)
+
+    try {
+      const response = await fetch("/api/enrollments/batch", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(batchEnrollment),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.message || "Failed to create batch enrollment")
+      }
+
+      const data = await response.json()
+
+      toast({
+        title: "Batch Enrollment Successful",
+        description: data.message,
+      })
+
+      // Refresh enrollments
+      const updatedResponse = await fetch("/api/enrollments")
+      if (updatedResponse.ok) {
+        const updatedData = await updatedResponse.json()
+        setEnrollments(updatedData)
+      }
+
+      setOpen(false)
+      setBatchEnrollment({
+        examId: "",
+        department: "",
+        year: "",
+      })
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Failed to create batch enrollment",
+        description: error instanceof Error ? error.message : "Something went wrong",
+      })
+    } finally {
+      setIsBatchEnrolling(false)
+    }
+  }
+
   const handleDeleteEnrollment = async (id: string) => {
     setIsDeleting(id)
 
@@ -242,6 +309,10 @@ export function EnrollmentManager({ enrollments: initialEnrollments }: Enrollmen
     setNewEnrollment((prev) => ({ ...prev, [name]: value }))
   }
 
+  const handleBatchSelectChange = (name: string, value: string) => {
+    setBatchEnrollment((prev) => ({ ...prev, [name]: value }))
+  }
+
   const toggleStudentSelection = (studentId: string) => {
     setSelectedStudents((prev) =>
       prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId],
@@ -250,7 +321,7 @@ export function EnrollmentManager({ enrollments: initialEnrollments }: Enrollmen
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end space-x-2">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -258,82 +329,160 @@ export function EnrollmentManager({ enrollments: initialEnrollments }: Enrollmen
               Add Enrollment
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Create Enrollment</DialogTitle>
-              <DialogDescription>Enroll student(s) in an exam</DialogDescription>
+              <DialogDescription>Enroll students in an exam</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="bulkMode"
-                  checked={bulkMode}
-                  onCheckedChange={(checked) => setBulkMode(checked as boolean)}
-                />
-                <Label htmlFor="bulkMode">Enroll multiple students</Label>
-              </div>
-
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="examId" className="text-right">
-                  Exam
-                </Label>
-                <Select onValueChange={(value) => handleSelectChange("examId", value)}>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select exam" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {exams.map((exam) => (
-                      <SelectItem key={exam.id} value={exam.id}>
-                        {exam.title} - {exam.courseCode}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {bulkMode ? (
-                <div className="grid gap-2">
-                  <Label className="mb-2">Select Students</Label>
-                  <div className="border rounded-md h-60 overflow-y-auto p-2">
-                    {students.map((student) => (
-                      <div key={student.id} className="flex items-center space-x-2 py-2">
-                        <Checkbox
-                          id={`student-${student.id}`}
-                          checked={selectedStudents.includes(student.id)}
-                          onCheckedChange={() => toggleStudentSelection(student.id)}
-                        />
-                        <Label htmlFor={`student-${student.id}`}>
-                          {student.name} - {student.email}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
+            
+            <Tabs defaultValue="individual" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="individual">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Individual
+                </TabsTrigger>
+                <TabsTrigger value="batch">
+                  <UsersRound className="mr-2 h-4 w-4" />
+                  Batch
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="individual" className="space-y-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="bulkMode"
+                    checked={bulkMode}
+                    onCheckedChange={(checked) => setBulkMode(checked as boolean)}
+                  />
+                  <Label htmlFor="bulkMode">Enroll multiple students</Label>
                 </div>
-              ) : (
+
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="studentId" className="text-right">
-                    Student
+                  <Label htmlFor="examId" className="text-right">
+                    Exam
                   </Label>
-                  <Select onValueChange={(value) => handleSelectChange("studentId", value)}>
+                  <Select onValueChange={(value) => handleSelectChange("examId", value)}>
                     <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select student" />
+                      <SelectValue placeholder="Select exam" />
                     </SelectTrigger>
                     <SelectContent>
-                      {students.map((student) => (
-                        <SelectItem key={student.id} value={student.id}>
-                          {student.name} - {student.email}
+                      {exams.map((exam) => (
+                        <SelectItem key={exam.id} value={exam.id}>
+                          {exam.title} - {exam.courseCode}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button type="submit" onClick={handleCreateEnrollment} disabled={isCreating}>
-                {isCreating ? "Creating..." : "Create Enrollment"}
-              </Button>
-            </DialogFooter>
+
+                {bulkMode ? (
+                  <div className="grid gap-2">
+                    <Label className="mb-2">Select Students</Label>
+                    <div className="border rounded-md h-60 overflow-y-auto p-2">
+                      {students.map((student) => (
+                        <div key={student.id} className="flex items-center space-x-2 py-2">
+                          <Checkbox
+                            id={`student-${student.id}`}
+                            checked={selectedStudents.includes(student.id)}
+                            onCheckedChange={() => toggleStudentSelection(student.id)}
+                          />
+                          <Label htmlFor={`student-${student.id}`}>
+                            {student.name} - {student.department ? `${student.department}` : ""} {student.year ? `(${student.year})` : ""} - {student.email}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="studentId" className="text-right">
+                      Student
+                    </Label>
+                    <Select onValueChange={(value) => handleSelectChange("studentId", value)}>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select student" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {students.map((student) => (
+                          <SelectItem key={student.id} value={student.id}>
+                            {student.name} - {student.department ? `${student.department}` : ""} {student.year ? `(${student.year})` : ""} - {student.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                <DialogFooter>
+                  <Button type="submit" onClick={handleCreateEnrollment} disabled={isCreating}>
+                    {isCreating ? "Creating..." : "Create Enrollment"}
+                  </Button>
+                </DialogFooter>
+              </TabsContent>
+              
+              <TabsContent value="batch" className="space-y-4">
+                <div className="grid gap-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="batchExamId" className="text-right">
+                      Exam
+                    </Label>
+                    <Select onValueChange={(value) => handleBatchSelectChange("examId", value)}>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select exam" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {exams.map((exam) => (
+                          <SelectItem key={exam.id} value={exam.id}>
+                            {exam.title} - {exam.courseCode}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="department" className="text-right">
+                      Department
+                    </Label>
+                    <Select onValueChange={(value) => handleBatchSelectChange("department", value)}>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Computer Science">Computer Science</SelectItem>
+                        <SelectItem value="E&TC">E&TC</SelectItem>
+                        <SelectItem value="Mechanical">Mechanical</SelectItem>
+                        <SelectItem value="AI&DS">AI&DS</SelectItem>
+                        <SelectItem value="Civil">Civil</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="year" className="text-right">
+                      Year
+                    </Label>
+                    <Select onValueChange={(value) => handleBatchSelectChange("year", value)}>
+                      <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Select year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="FE">First Year (FE)</SelectItem>
+                        <SelectItem value="SE">Second Year (SE)</SelectItem>
+                        <SelectItem value="TE">Third Year (TE)</SelectItem>
+                        <SelectItem value="BE">Fourth Year (BE)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <DialogFooter>
+                  <Button type="submit" onClick={handleBatchEnrollment} disabled={isBatchEnrolling}>
+                    {isBatchEnrolling ? "Enrolling..." : "Enroll Department Year"}
+                  </Button>
+                </DialogFooter>
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </div>

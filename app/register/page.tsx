@@ -11,12 +11,19 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 
 const formSchema = z
   .object({
     name: z.string().min(2, { message: "Name must be at least 2 characters" }),
     email: z.string().email({ message: "Please enter a valid email address" }),
+    department: z.enum(["Computer Science", "E&TC", "Mechanical", "AI&DS", "Civil"], { 
+      required_error: "Please select a department" 
+    }),
+    year: z.enum(["FE", "SE", "TE", "BE"], { 
+      required_error: "Please select a year" 
+    }),
     password: z.string().min(6, { message: "Password must be at least 6 characters" }),
     confirmPassword: z.string().min(6, { message: "Password must be at least 6 characters" }),
   })
@@ -43,6 +50,8 @@ export default function RegisterPage() {
     name: string
     email: string
     password: string
+    department?: string
+    year?: string
   } | null>(null)
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -89,6 +98,8 @@ export default function RegisterPage() {
         name: values.name,
         email: values.email,
         password: values.password,
+        department: values.department,
+        year: values.year,
       })
 
       // Show verification form
@@ -150,6 +161,8 @@ export default function RegisterPage() {
           name: userData.name,
           email: userData.email,
           password: userData.password,
+          department: userData.department,  
+          year: userData.year,           
           verified: true,
         }),
       })
@@ -209,9 +222,7 @@ export default function RegisterPage() {
               <Button className="w-full">Go to Login</Button>
             </Link>
             <Link href="/" className="w-full">
-              <Button variant="outline" className="w-full">
-                Back to Home
-              </Button>
+              <Button variant="outline" className="w-full">Back to Home</Button>
             </Link>
           </CardFooter>
         </Card>
@@ -287,6 +298,53 @@ export default function RegisterPage() {
                       <FormControl>
                         <Input placeholder="your.email@example.com" {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="department"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Department</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select your department" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Computer Science">Computer Science</SelectItem>
+                          <SelectItem value="E&TC">E&TC</SelectItem>
+                          <SelectItem value="Mechanical">Mechanical</SelectItem>
+                          <SelectItem value="AI&DS">AI&DS</SelectItem>
+                          <SelectItem value="Civil">Civil</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="year"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Year</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select your year" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="FE">First Year (FE)</SelectItem>
+                          <SelectItem value="SE">Second Year (SE)</SelectItem>
+                          <SelectItem value="TE">Third Year (TE)</SelectItem>
+                          <SelectItem value="BE">Fourth Year (BE)</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

@@ -5,6 +5,7 @@ import { boolean, integer, pgEnum, pgTable, primaryKey, text, timestamp, uuid } 
 export const userRoleEnum = pgEnum("user_role", ["ADMIN", "FACULTY", "STUDENT"])
 export const registrationStatusEnum = pgEnum("registration_status", ["PENDING", "APPROVED", "REJECTED"])
 export const attendanceStatusEnum = pgEnum("attendance_status", ["PRESENT", "ABSENT", "LATE"])
+export const yearEnum = pgEnum("year", ["FE", "SE", "TE", "BE"])
 
 // Users table
 export const users = pgTable("users", {
@@ -13,6 +14,8 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   role: userRoleEnum("role").notNull().default("STUDENT"),
+  department: text("department"),
+  year: yearEnum("year"),
   verified: boolean("verified").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -273,6 +276,8 @@ export const pendingRegistrations = pgTable("pending_registrations", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
+  department: text("department"),
+  year: yearEnum("year"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 })
 
