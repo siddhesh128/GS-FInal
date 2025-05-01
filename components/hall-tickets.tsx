@@ -11,7 +11,7 @@ import { useToast } from "@/components/ui/use-toast"
 interface HallTicket {
   id: string
   examId: string
-  studentId: string  // Add this missing property
+  studentId: string
   examTitle: string
   courseCode: string
   date: string
@@ -21,6 +21,16 @@ interface HallTicket {
   roomNumber: string
   seatNumber: string
   status: string
+  subjects?: {
+    id: string
+    name: string
+    code: string
+    schedule?: {
+      date: string
+      startTime: string
+      endTime: string
+    }
+  }[]
 }
 
 interface HallTicketsProps {
@@ -109,7 +119,7 @@ export function HallTickets({ tickets }: HallTicketsProps) {
             <CardTitle>{ticket.examTitle}</CardTitle>
             <CardDescription>{ticket.courseCode}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3">
             <div className="flex justify-between">
               <span className="text-sm font-medium">Date:</span>
               <span className="text-sm">{format(new Date(ticket.date), "PPP")}</span>
@@ -138,6 +148,28 @@ export function HallTickets({ tickets }: HallTicketsProps) {
                 {ticket.status}
               </span>
             </div>
+            
+            {/* Subject-specific schedules */}
+            {ticket.subjects && ticket.subjects.length > 0 && (
+              <div className="mt-3 border-t pt-3">
+                <h4 className="text-sm font-medium mb-2">Subject Schedules:</h4>
+                <div className="space-y-2">
+                  {ticket.subjects.map(subject => (
+                    <div key={subject.id} className="rounded-md bg-muted p-2 text-xs">
+                      <div className="font-medium">{subject.name} ({subject.code})</div>
+                      {subject.schedule ? (
+                        <div className="mt-1 text-muted-foreground">
+                          <div>Date: {format(new Date(subject.schedule.date), "PPP")}</div>
+                          <div>Time: {subject.schedule.startTime} - {subject.schedule.endTime}</div>
+                        </div>
+                      ) : (
+                        <div className="mt-1 text-muted-foreground">Using main exam schedule</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
           <CardFooter>
             <Button

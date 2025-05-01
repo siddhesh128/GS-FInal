@@ -62,6 +62,11 @@ interface SeatingArrangement {
     name: string
     email: string
   } | null
+  subjectSchedule?: {
+    date: string
+    startTime: string
+    endTime: string
+  } | null
 }
 
 interface SeatingViewProps {
@@ -149,7 +154,9 @@ export function SeatingView({ initialSeatingArrangements, exams, subjects, build
 
     const rows = filteredArrangements.map((arrangement) => [
       arrangement.exam.title,
-      format(new Date(arrangement.exam.date), "yyyy-MM-dd"),
+      arrangement.subjectSchedule 
+        ? format(new Date(arrangement.subjectSchedule.date), "yyyy-MM-dd")
+        : format(new Date(arrangement.exam.date), "yyyy-MM-dd"),
       arrangement.subject ? `${arrangement.subject.name} (${arrangement.subject.code})` : "N/A",
       arrangement.student.name,
       arrangement.student.email,
@@ -332,7 +339,11 @@ export function SeatingView({ initialSeatingArrangements, exams, subjects, build
                 {filteredArrangements.map((arrangement) => (
                   <TableRow key={arrangement.id}>
                     <TableCell>{arrangement.exam.title}</TableCell>
-                    <TableCell>{format(new Date(arrangement.exam.date), "PPP")}</TableCell>
+                    <TableCell>
+                      {arrangement.subjectSchedule 
+                        ? format(new Date(arrangement.subjectSchedule.date), "PPP")
+                        : format(new Date(arrangement.exam.date), "PPP")}
+                    </TableCell>
                     <TableCell>
                       {arrangement.subject ? (
                         `${arrangement.subject.name} (${arrangement.subject.code})`

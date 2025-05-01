@@ -44,6 +44,7 @@ export const subjects = pgTable("subjects", {
 // Subject relations
 export const subjectsRelations = relations(subjects, ({ many }) => ({
   examSubjects: many(examSubjects),
+  subjectSchedules: many(subjectSchedules),
 }))
 
 // Buildings table
@@ -144,6 +145,7 @@ export const examSubjectsRelations = relations(examSubjects, ({ one }) => ({
 export const enrollments = pgTable(
   "enrollments",
   {
+    id: uuid("id").defaultRandom().primaryKey(), // Added a unique ID field
     examId: uuid("exam_id")
       .notNull()
       .references(() => exams.id, { onDelete: "cascade" }),
@@ -151,14 +153,11 @@ export const enrollments = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     enrolledAt: timestamp("enrolled_at").defaultNow().notNull(),
-  },
-  (t) => ({
-    pk: primaryKey({ columns: [t.examId, t.studentId] }),
-  }),
+  }
 )
 
 // Enrollment relations
-export const enrollmentsRelations = relations(enrollments, ({ one }) => ({
+export const enrollmentsRelations = relations(enrollments, ({ one, many }) => ({
   exam: one(exams, {
     fields: [enrollments.examId],
     references: [exams.id],
@@ -166,6 +165,41 @@ export const enrollmentsRelations = relations(enrollments, ({ one }) => ({
   student: one(users, {
     fields: [enrollments.studentId],
     references: [users.id],
+  }),
+  subjectSchedules: many(subjectSchedules),
+}))
+
+// Subject Schedules table - stores subject-specific dates and times for exams
+export const subjectSchedules = pgTable("subject_schedules", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  examId: uuid("exam_id") // Added examId field
+    .notNull()
+    .references(() => exams.id, { onDelete: "cascade" }),
+  enrollmentId: uuid("enrollment_id")
+    .references(() => enrollments.id, { onDelete: "cascade" }),
+  subjectId: uuid("subject_id")
+    .notNull()
+    .references(() => subjects.id, { onDelete: "cascade" }),
+  date: timestamp("date").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+})
+
+// Subject Schedules relations
+export const subjectSchedulesRelations = relations(subjectSchedules, ({ one }) => ({
+  exam: one(exams, {
+    fields: [subjectSchedules.examId],
+    references: [exams.id],
+  }),
+  enrollment: one(enrollments, {
+    fields: [subjectSchedules.enrollmentId],
+    references: [enrollments.id],
+  }),
+  subject: one(subjects, {
+    fields: [subjectSchedules.subjectId],
+    references: [subjects.id],
   }),
 }))
 

@@ -8,7 +8,7 @@ import { seatingArrangements } from "@/lib/db/schema"
 const seatingSchema = z.object({
   examId: z.string().uuid(),
   studentId: z.string().uuid(),
-  roomNumber: z.string(),
+  roomId: z.string().uuid(),
   seatNumber: z.string(),
 })
 
@@ -27,9 +27,22 @@ export async function GET(request: NextRequest) {
       seatingData = await db.query.seatingArrangements.findMany({
         with: {
           exam: true,
+          subject: true,
           student: {
             columns: {
               password: false,
+            },
+          },
+          invigilator: {
+            columns: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
+          room: {
+            with: {
+              building: true,
             },
           },
         },
@@ -40,8 +53,80 @@ export async function GET(request: NextRequest) {
         where: (seatingArrangements, { eq }) => eq(seatingArrangements.studentId, session.user.id),
         with: {
           exam: true,
+          subject: true,
+          invigilator: {
+            columns: {
+              id: true,
+              name: true,
+              email: true,
+            }
+          },
+          room: {
+            with: {
+              building: true,
+            },
+          },
         },
       })
+    } else if (session.user.role === "FACULTY") {
+      // Faculty can see arrangements where they are invigilators
+      seatingData = await db.query.seatingArrangements.findMany({
+        where: (seatingArrangements, { eq }) => eq(seatingArrangements.invigilatorId, session.user.id),
+        with: {
+          exam: true,
+          subject: true,
+          student: {
+            columns: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          room: {
+            with: {
+              building: true,
+            },
+          },
+        },
+      })
+    }
+    
+    // If we have seating arrangements, fetch subject-specific schedules
+    if (seatingData && seatingData.length > 0) {
+      // Get unique exam and subject IDs
+      const examIds = [...new Set(seatingData.map(sa => sa.examId))];
+      const subjectIds = [...new Set(seatingData.filter(sa => sa.subjectId).map(sa => sa.subjectId as string))];
+      
+      // Fetch all relevant subject schedules in a single query
+      const subjectSchedules = await db.query.subjectSchedules.findMany({
+        where: (ss, { and, inArray }) => {
+          const conditions = [];
+          if (examIds.length) conditions.push(inArray(ss.examId, examIds));
+          if (subjectIds.length) conditions.push(inArray(ss.subjectId, subjectIds));
+          return and(...conditions);
+        }
+      });
+      
+      // Map subject schedules to seating arrangements
+      seatingData = seatingData.map(arrangement => {
+        if (arrangement.subjectId) {
+          const schedule = subjectSchedules.find(
+            ss => ss.examId === arrangement.examId && ss.subjectId === arrangement.subjectId
+          );
+          
+          if (schedule) {
+            return {
+              ...arrangement,
+              subjectSchedule: {
+                date: schedule.date,
+                startTime: schedule.startTime,
+                endTime: schedule.endTime
+              }
+            };
+          }
+        }
+        return arrangement;
+      });
     }
 
     return NextResponse.json(seatingData)
@@ -84,7 +169,7 @@ export async function POST(request: NextRequest) {
       .values({
         examId: validatedData.examId,
         studentId: validatedData.studentId,
-        roomNumber: validatedData.roomNumber,
+        roomId: validatedData.roomId,
         seatNumber: validatedData.seatNumber,
       })
       .returning()

@@ -31,12 +31,50 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // Create a map of seating arrangements for quick lookup
+    // Get exam subjects for all exams the student is enrolled in
+    const examIds = studentEnrollments.map(enrollment => enrollment.examId);
+    
+    // Get all exam subjects for these exams
+    const examSubjects = await db.query.examSubjects.findMany({
+      where: (es, { inArray }) => inArray(es.examId, examIds),
+      with: { subject: true },
+    });
+    
+    // Get all subject schedules for these exams
+    const subjectSchedules = await db.query.subjectSchedules.findMany({
+      where: (ss, { inArray }) => inArray(ss.examId, examIds),
+    });
+
+    // Create maps for quick lookups
     const seatingMap = new Map();
     for (const seating of seatingArrangements) {
       // Create a composite key of examId_studentId
       const key = `${seating.examId}_${seating.studentId}`;
       seatingMap.set(key, seating);
+    }
+    
+    // Group subjects and schedules by exam
+    const subjectsByExam = new Map();
+    for (const es of examSubjects) {
+      if (!subjectsByExam.has(es.examId)) {
+        subjectsByExam.set(es.examId, []);
+      }
+      
+      // Find schedule for this subject if it exists
+      const schedule = subjectSchedules.find(
+        ss => ss.examId === es.examId && ss.subjectId === es.subjectId
+      );
+      
+      subjectsByExam.get(es.examId).push({
+        id: es.subject.id,
+        name: es.subject.name,
+        code: es.subject.code,
+        schedule: schedule ? {
+          date: schedule.date,
+          startTime: schedule.startTime,
+          endTime: schedule.endTime
+        } : undefined
+      });
     }
 
     // Format hall tickets data
@@ -44,6 +82,9 @@ export async function GET(request: NextRequest) {
       // Look up seating arrangement for this enrollment
       const key = `${enrollment.examId}_${enrollment.studentId}`;
       const seating = seatingMap.get(key);
+      
+      // Get subjects for this exam
+      const subjects = subjectsByExam.get(enrollment.examId) || [];
 
       // Construct ID in the format expected by the download endpoint
       const ticketId = `${enrollment.examId}_${enrollment.studentId}`;
@@ -61,6 +102,7 @@ export async function GET(request: NextRequest) {
         roomNumber: seating?.room?.roomNumber || "Not assigned",
         seatNumber: seating?.seatNumber || "Not assigned",
         status: seating ? "Ready for download" : "Pending seating assignment",
+        subjects: subjects
       };
     });
 

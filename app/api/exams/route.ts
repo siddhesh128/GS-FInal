@@ -3,7 +3,15 @@ import { z } from "zod"
 
 import { getSession } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { exams, examSubjects } from "@/lib/db/schema"
+import { exams, examSubjects, subjectSchedules } from "@/lib/db/schema"
+
+// Schema for subject schedules
+const subjectScheduleSchema = z.object({
+  subjectId: z.string().uuid(),
+  date: z.string().or(z.date()),
+  startTime: z.string(),
+  endTime: z.string(),
+})
 
 const examSchema = z.object({
   title: z.string().min(2),
@@ -13,6 +21,8 @@ const examSchema = z.object({
   endTime: z.string(),
   location: z.string().min(2),
   subjectIds: z.array(z.string().uuid()).min(1, "At least one subject must be selected"),
+  // Optional subject schedules
+  subjectSchedules: z.array(subjectScheduleSchema).optional(),
 })
 
 export async function GET(request: NextRequest) {
@@ -43,9 +53,16 @@ export async function GET(request: NextRequest) {
           where: (es, { eq }) => eq(es.examId, exam.id),
           with: { subject: true },
         })
+        
+        // Get subject schedules if any
+        const scheduleData = await db.query.subjectSchedules.findMany({
+          where: (ss, { eq }) => eq(ss.examId, exam.id),
+        })
+        
         examsList.push({
           ...exam,
           subjects: subjectData.map(es => es.subject),
+          subjectSchedules: scheduleData.length > 0 ? scheduleData : undefined,
         })
       }
     } else if (session.user.role === "FACULTY") {
@@ -58,9 +75,16 @@ export async function GET(request: NextRequest) {
           where: (es, { eq }) => eq(es.examId, exam.id),
           with: { subject: true },
         })
+        
+        // Get subject schedules if any
+        const scheduleData = await db.query.subjectSchedules.findMany({
+          where: (ss, { eq }) => eq(ss.examId, exam.id),
+        })
+        
         examsList.push({
           ...exam,
           subjects: subjectData.map(es => es.subject),
+          subjectSchedules: scheduleData.length > 0 ? scheduleData : undefined,
         })
       }
     } else {
@@ -77,9 +101,16 @@ export async function GET(request: NextRequest) {
           where: (es, { eq }) => eq(es.examId, exam.id),
           with: { subject: true },
         })
+        
+        // Get subject schedules if any
+        const scheduleData = await db.query.subjectSchedules.findMany({
+          where: (ss, { eq }) => eq(ss.examId, exam.id),
+        })
+        
         examsList.push({
           ...exam,
           subjects: subjectData.map(es => es.subject),
+          subjectSchedules: scheduleData.length > 0 ? scheduleData : undefined,
         })
       }
     }
@@ -102,7 +133,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = examSchema.parse(body)
 
-    // Create new exam
+    // Create new exam without using transactions
     const newExam = await db
       .insert(exams)
       .values({
@@ -114,35 +145,60 @@ export async function POST(request: NextRequest) {
         createdBy: session.user.id,
         description: validatedData.courseCode, // Using description field for courseCode
       })
-      .returning()
+      .returning();
 
+    if (!newExam[0]) {
+      throw new Error("Failed to create exam");
+    }
+    
     // Create exam-subject relationships
     const examSubjectsData = validatedData.subjectIds.map((subjectId) => ({
       examId: newExam[0].id,
       subjectId,
-    }))
+    }));
 
-    await db.insert(examSubjects).values(examSubjectsData)
+    await db.insert(examSubjects).values(examSubjectsData);
 
-    // Fetch the created exam with subjects
+    // Create subject-specific schedules if provided
+    if (validatedData.subjectSchedules && validatedData.subjectSchedules.length > 0) {
+      const schedulesToInsert = validatedData.subjectSchedules.map(schedule => ({
+        examId: newExam[0].id,
+        subjectId: schedule.subjectId,
+        date: typeof schedule.date === 'string' ? new Date(schedule.date) : schedule.date,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+      }));
+      
+      // Insert all schedules at once
+      await db.insert(subjectSchedules).values(schedulesToInsert);
+    }
+    
+    // Fetch the created exam
     const createdExam = await db.query.exams.findFirst({
       where: (exams, { eq }) => eq(exams.id, newExam[0].id),
-      with: {
-        examSubjects: {
-          with: {
-            subject: true,
-          },
-        },
-      },
-    })
+    });
+    
+    // Fetch subjects for this exam
+    const subjectData = await db.query.examSubjects.findMany({
+      where: (es, { eq }) => eq(es.examId, newExam[0].id),
+      with: { subject: true },
+    });
+    
+    // Fetch schedules for this exam
+    const scheduleData = validatedData.subjectSchedules && validatedData.subjectSchedules.length > 0 
+      ? await db.query.subjectSchedules.findMany({
+          where: (ss, { eq }) => eq(ss.examId, newExam[0].id),
+        })
+      : [];
 
-    // Transform the data to include subjects directly
-    const responseExam = {
+    // Return the complete exam data
+    const result = {
       ...createdExam,
-      subjects: createdExam?.examSubjects?.map((es: any) => es.subject) || [],
-    }
+      subjects: subjectData.map(es => es.subject),
+      subjectSchedules: scheduleData.length > 0 ? scheduleData : undefined,
+    };
 
-    return NextResponse.json(responseExam, { status: 201 })
+    return NextResponse.json(result, { status: 201 })
   } catch (error) {
     console.error("Error creating exam:", error)
 

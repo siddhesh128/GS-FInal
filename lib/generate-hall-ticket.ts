@@ -11,6 +11,10 @@ interface SubjectSeating {
   seatNumber: string
   invigilatorName: string
   invigilatorEmail: string
+  date: Date
+  startTime: string
+  endTime: string
+  hasCustomSchedule?: boolean
 }
 
 interface HallTicketData {
@@ -130,6 +134,15 @@ export function generateHallTicket(data: HallTicketData): string {
     doc.text(subject.roomNumber, 125, yPos)
     doc.text(subject.floor, 150, yPos)
     doc.text(subject.seatNumber, 175, yPos)
+
+    // Add subject-specific schedule if available
+    if (subject.hasCustomSchedule) {
+      yPos += 10
+      doc.setFont("helvetica", "bold")
+      doc.text("Schedule:", 20, yPos)
+      doc.setFont("helvetica", "normal")
+      doc.text(`${format(subject.date, "PPP")} ${subject.startTime} - ${subject.endTime}`, 60, yPos)
+    }
 
     // Add a light line between rows
     if (index < data.subjects.length - 1) {
