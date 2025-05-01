@@ -90,7 +90,7 @@ export async function getSeatingArrangements(userId: string, role: string) {
   try {
     if (role === "ADMIN") {
       // Admins can see all seating arrangements
-      return await db.query.seatingArrangements.findMany({
+      const seatingData = await db.query.seatingArrangements.findMany({
         with: {
           exam: true,
           student: {
@@ -100,16 +100,108 @@ export async function getSeatingArrangements(userId: string, role: string) {
               email: true,
             },
           },
+          invigilator: {
+            columns: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          room: true,
         },
-      })
+      });
+
+      // Enhance seating data with subject information and schedules
+      return await Promise.all(seatingData.map(async (seating) => {
+        // Get subject information if subjectId exists
+        let subject = null;
+        let subjectSchedule = null;
+
+        if (seating.subjectId) {
+          // Get subject information
+          const subjectData = await db.query.subjects.findFirst({
+            where: (subjects, { eq }) => eq(subjects.id, seating.subjectId as string),
+          });
+          
+          if (subjectData) {
+            subject = subjectData;
+            
+            // Get subject schedule if available
+            const scheduleData = await db.query.subjectSchedules.findFirst({
+              where: (ss, { and, eq }) => 
+                and(eq(ss.examId, seating.examId), eq(ss.subjectId, seating.subjectId as string)),
+            });
+            
+            if (scheduleData) {
+              subjectSchedule = {
+                date: scheduleData.date,
+                startTime: scheduleData.startTime,
+                endTime: scheduleData.endTime,
+              };
+            }
+          }
+        }
+
+        return {
+          ...seating,
+          subject,
+          subjectSchedule,
+        };
+      }));
     } else if (role === "STUDENT") {
       // Students can only see their own seating arrangements
-      return await db.query.seatingArrangements.findMany({
+      const seatingData = await db.query.seatingArrangements.findMany({
         where: (seatingArrangements, { eq }) => eq(seatingArrangements.studentId, userId),
         with: {
           exam: true,
+          invigilator: {
+            columns: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          room: true,
         },
-      })
+      });
+
+      // Enhance seating data with subject information and schedules
+      return await Promise.all(seatingData.map(async (seating) => {
+        // Get subject information if subjectId exists
+        let subject = null;
+        let subjectSchedule = null;
+
+        if (seating.subjectId) {
+          // Get subject information
+          const subjectData = await db.query.subjects.findFirst({
+            where: (subjects, { eq }) => eq(subjects.id, seating.subjectId as string),
+          });
+          
+          if (subjectData) {
+            subject = subjectData;
+            
+            // Get subject schedule if available
+            const scheduleData = await db.query.subjectSchedules.findFirst({
+              where: (ss, { and, eq }) => 
+                and(eq(ss.examId, seating.examId), eq(ss.subjectId, seating.subjectId as string)),
+            });
+            
+            if (scheduleData) {
+              subjectSchedule = {
+                date: scheduleData.date,
+                startTime: scheduleData.startTime,
+                endTime: scheduleData.endTime,
+              };
+            }
+          }
+        }
+
+        return {
+          ...seating,
+          subject,
+          subjectSchedule,
+        };
+      }));
     }
 
     return []
@@ -139,8 +231,43 @@ export async function getHallTickets(studentId: string) {
             and(eq(sa.examId, enrollment.examId), eq(sa.studentId, studentId)),
           with: {
             room: true,
+            invigilator: {
+              columns: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
           },
         })
+
+        // Get subjects for this exam
+        const examSubjectsData = await db.query.examSubjects.findMany({
+          where: (es, { eq }) => eq(es.examId, enrollment.examId),
+          with: { subject: true },
+        })
+        
+        // Get subject schedules if any
+        const subjectSchedulesData = await db.query.subjectSchedules.findMany({
+          where: (ss, { eq }) => eq(ss.examId, enrollment.examId),
+        })
+
+        // Map subjects with their schedules
+        const subjects = examSubjectsData.map(es => {
+          // Find a schedule for this subject if exists
+          const schedule = subjectSchedulesData.find(ss => ss.subjectId === es.subjectId);
+          
+          return {
+            id: es.subject.id,
+            name: es.subject.name,
+            code: es.subject.code,
+            schedule: schedule ? {
+              date: schedule.date,
+              startTime: schedule.startTime,
+              endTime: schedule.endTime
+            } : undefined
+          };
+        });
 
         // Use description field in place of courseCode
         return {
@@ -154,7 +281,10 @@ export async function getHallTickets(studentId: string) {
           location: enrollment.exam.location,
           roomNumber: seatingArrangement?.room.roomNumber || "Not assigned",
           seatNumber: seatingArrangement?.seatNumber || "Not assigned",
+          invigilatorName: seatingArrangement?.invigilator?.name || "Not assigned",
+          invigilatorEmail: seatingArrangement?.invigilator?.email || "",
           status: seatingArrangement ? "Ready for download" : "Pending seating assignment",
+          subjects: subjects,
         }
       })
     )

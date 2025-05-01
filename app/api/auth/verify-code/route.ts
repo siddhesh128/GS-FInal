@@ -1,68 +1,51 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
-import { eq } from "drizzle-orm"
+import { eq, and, lt } from "drizzle-orm"
 
 import { db } from "@/lib/db"
 import { registrationVerifications } from "@/lib/db/schema"
-import { sendVerificationEmail } from "@/lib/email"
 
-const requestSchema = z.object({
-  name: z.string().min(2),
+const verifyCodeSchema = z.object({
   email: z.string().email(),
+  code: z.string().min(1).max(6),
 })
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const validatedData = requestSchema.parse(body)
+    const validatedData = verifyCodeSchema.parse(body)
 
-    // Check if user with email already exists
-    const existingUser = await db.query.users.findFirst({
-      where: (users, { eq }) => eq(users.email, validatedData.email),
+    // Find the verification record
+    const verification = await db.query.registrationVerifications.findFirst({
+      where: (rv, { eq, and, gt }) => 
+        and(
+          eq(rv.email, validatedData.email),
+          eq(rv.code, validatedData.code),
+          gt(rv.expiresAt, new Date()) // Make sure the code hasn't expired
+        )
     })
 
-    if (existingUser) {
-      return NextResponse.json({ message: "User with this email already exists" }, { status: 409 })
+    if (!verification) {
+      return NextResponse.json({ 
+        message: "Invalid or expired verification code" 
+      }, { status: 400 })
     }
 
-    // Check if there's already a pending registration with this email
-    const existingPendingRegistration = await db.query.pendingRegistrations.findFirst({
-      where: (pendingRegistrations, { eq }) => eq(pendingRegistrations.email, validatedData.email),
-    })
-
-    if (existingPendingRegistration) {
-      return NextResponse.json({ message: "Registration with this email is already pending approval" }, { status: 409 })
-    }
-
-    // Generate a 6-digit verification code
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
-
-    // Store the verification code with an expiration time (30 minutes)
-    const expiresAt = new Date(Date.now() + 30 * 60 * 1000) // 30 minutes from now
-
-    // Delete any existing verification codes for this email
-    await db.delete(registrationVerifications).where(eq(registrationVerifications.email, validatedData.email))
-
-    // Insert the verification code
-    await db.insert(registrationVerifications).values({
-      email: validatedData.email,
-      code: verificationCode,
-      expiresAt,
-    })
-
-    // Send verification email
-    await sendVerificationEmail(validatedData.email, validatedData.name, verificationCode)
+    // Delete the used verification code
+    await db.delete(registrationVerifications)
+      .where(eq(registrationVerifications.id, verification.id))
 
     return NextResponse.json({
-      message: "Verification code sent",
+      message: "Code verified successfully",
+      verified: true
     })
   } catch (error) {
-    console.error("Verification request error:", error)
+    console.error("Verification error:", error)
 
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: "Invalid input data", errors: error.errors }, { status: 400 })
     }
 
-    return NextResponse.json({ message: "An error occurred during verification request" }, { status: 500 })
+    return NextResponse.json({ message: "An error occurred during verification" }, { status: 500 })
   }
 }

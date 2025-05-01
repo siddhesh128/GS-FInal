@@ -218,7 +218,7 @@ export default async function Home() {
           <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
             <div className="flex items-center">
               <BookOpen className="mr-2 h-6 w-6 text-primary" />
-              <span className="text-lg font-bold">Exam Management System</span>
+              <span className="text-lg font-bold">Exam Management Systems</span>
             </div>
             <div className="text-sm text-muted-foreground">
               © {new Date().getFullYear()} Examination Management System. All rights reserved.

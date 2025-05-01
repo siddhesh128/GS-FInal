@@ -50,6 +50,17 @@ interface Room {
   }
 }
 
+interface Faculty {
+  id: string
+  name: string
+  email: string
+}
+
+interface RoomInvigilator {
+  roomId: string
+  invigilatorId: string
+}
+
 export function BulkSeatingGenerator() {
   const router = useRouter()
   const { toast } = useToast()
@@ -59,6 +70,7 @@ export function BulkSeatingGenerator() {
   const [buildings, setBuildings] = useState<Building[]>([])
   const [rooms, setRooms] = useState<Room[]>([])
   const [filteredRooms, setFilteredRooms] = useState<Room[]>([])
+  const [facultyUsers, setFacultyUsers] = useState<Faculty[]>([])
   const [selectedExamId, setSelectedExamId] = useState("")
   const [selectedSubjectId, setSelectedSubjectId] = useState("")
   const [selectedBuildingId, setSelectedBuildingId] = useState("")
@@ -67,6 +79,8 @@ export function BulkSeatingGenerator() {
   const [studentsPerRoom, setStudentsPerRoom] = useState("20")
   const [generationMode, setGenerationMode] = useState("auto")
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([])
+  const [roomInvigilators, setRoomInvigilators] = useState<RoomInvigilator[]>([])
+  const [generateForAllSubjects, setGenerateForAllSubjects] = useState(false)
 
   // Fetch exams for bulk seating generation
   useEffect(() => {
@@ -122,9 +136,27 @@ export function BulkSeatingGenerator() {
         }
       }
 
+      const fetchFaculty = async () => {
+        try {
+          const response = await fetch("/api/users?role=FACULTY")
+          if (!response.ok) {
+            throw new Error("Failed to fetch faculty")
+          }
+          const data = await response.json()
+          setFacultyUsers(data)
+        } catch (error) {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to load faculty users",
+          })
+        }
+      }
+
       fetchExams()
       fetchBuildings()
       fetchRooms()
+      fetchFaculty()
     }
   }, [open, toast])
 
@@ -137,6 +169,28 @@ export function BulkSeatingGenerator() {
     }
   }, [selectedBuildingId, rooms])
 
+  // Reset room invigilators when selected rooms change
+  useEffect(() => {
+    if (generationMode === "manual") {
+      setRoomInvigilators(
+        selectedRoomIds.map(roomId => {
+          // Keep existing invigilator if room was already selected
+          const existingAssignment = roomInvigilators.find(ri => ri.roomId === roomId)
+          return {
+            roomId,
+            invigilatorId: existingAssignment?.invigilatorId || ""
+          }
+        })
+      )
+    }
+  }, [selectedRoomIds, generationMode])
+
+  const handleUpdateRoomInvigilator = (roomId: string, invigilatorId: string) => {
+    setRoomInvigilators(prev => 
+      prev.map(item => item.roomId === roomId ? { ...item, invigilatorId } : item)
+    )
+  }
+
   const handleGenerateSeating = async () => {
     if (!selectedExamId) {
       toast({
@@ -147,7 +201,8 @@ export function BulkSeatingGenerator() {
       return
     }
 
-    if (!selectedSubjectId) {
+    // Only require subject selection if not generating for all subjects
+    if (!generateForAllSubjects && !selectedSubjectId) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -175,13 +230,15 @@ export function BulkSeatingGenerator() {
         },
         body: JSON.stringify({
           examId: selectedExamId,
-          subjectId: selectedSubjectId,
+          subjectId: generateForAllSubjects ? null : selectedSubjectId,
+          generateForAllSubjects: generateForAllSubjects,
           roomPrefix,
           seatPrefix,
           studentsPerRoom: Number.parseInt(studentsPerRoom, 10),
           generationMode,
           roomIds: generationMode === "manual" ? selectedRoomIds : undefined,
           buildingId: selectedBuildingId || undefined,
+          roomInvigilators: roomInvigilators.filter(ri => ri.invigilatorId),
         }),
       })
 
@@ -256,20 +313,34 @@ export function BulkSeatingGenerator() {
               <Label htmlFor="subjectId" className="text-right">
                 Subject
               </Label>
-              <Select onValueChange={setSelectedSubjectId}>
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  {exams
-                    .find((exam) => exam.id === selectedExamId)
-                    ?.subjects?.map((subject) => (
-                      <SelectItem key={subject.id} value={subject.id}>
-                        {subject.name} ({subject.code})
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              <div className="col-span-3">
+                <div className="flex items-center space-x-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id="allSubjects"
+                    checked={generateForAllSubjects}
+                    onChange={(e) => setGenerateForAllSubjects(e.target.checked)}
+                  />
+                  <Label htmlFor="allSubjects">Generate for all subjects in this exam</Label>
+                </div>
+                
+                {!generateForAllSubjects && (
+                  <Select onValueChange={setSelectedSubjectId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select subject" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {exams
+                        .find((exam) => exam.id === selectedExamId)
+                        ?.subjects?.map((subject) => (
+                          <SelectItem key={subject.id} value={subject.id}>
+                            {subject.name} ({subject.code})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             </div>
           )}
 
@@ -344,31 +415,70 @@ export function BulkSeatingGenerator() {
               </div>
             </>
           ) : (
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right pt-2">Select Rooms</Label>
-              <div className="col-span-3 border rounded-md p-4 max-h-60 overflow-y-auto">
-                {filteredRooms.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No rooms available</p>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredRooms.map((room) => (
-                      <div key={room.id} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={`room-${room.id}`}
-                          checked={selectedRoomIds.includes(room.id)}
-                          onChange={() => handleRoomToggle(room.id)}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        <label htmlFor={`room-${room.id}`} className="text-sm">
-                          {room.building?.name} - Room {room.roomNumber} (Floor {room.floor}, Capacity: {room.capacity})
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                )}
+            <>
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="text-right pt-2">Select Rooms</Label>
+                <div className="col-span-3 border rounded-md p-4 max-h-60 overflow-y-auto">
+                  {filteredRooms.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No rooms available</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredRooms.map((room) => (
+                        <div key={room.id} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`room-${room.id}`}
+                            checked={selectedRoomIds.includes(room.id)}
+                            onChange={() => handleRoomToggle(room.id)}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          <label htmlFor={`room-${room.id}`} className="text-sm">
+                            {room.building?.name} - Room {room.roomNumber} (Floor {room.floor}, Capacity: {room.capacity})
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+              
+              {selectedRoomIds.length > 0 && (
+                <div className="grid grid-cols-4 items-start gap-4">
+                  <Label className="text-right pt-2">Assign Invigilators</Label>
+                  <div className="col-span-3 border rounded-md p-4 max-h-60 overflow-y-auto">
+                    <div className="space-y-3">
+                      {selectedRoomIds.map((roomId) => {
+                        const room = rooms.find(r => r.id === roomId);
+                        const roomInvigilator = roomInvigilators.find(ri => ri.roomId === roomId);
+                        return (
+                          <div key={`invig-${roomId}`} className="grid grid-cols-2 gap-2 items-center">
+                            <div className="text-sm font-medium">
+                              {room?.building?.name} - Room {room?.roomNumber}:
+                            </div>
+                            <Select 
+                              value={roomInvigilator?.invigilatorId || "none"}
+                              onValueChange={(value) => handleUpdateRoomInvigilator(roomId, value === "none" ? "" : value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select invigilator" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">None</SelectItem>
+                                {facultyUsers.map((faculty) => (
+                                  <SelectItem key={faculty.id} value={faculty.id}>
+                                    {faculty.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
         <DialogFooter>

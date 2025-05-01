@@ -13,7 +13,6 @@ const examUpdateSchema = z.object({
   startTime: z.string().optional(),
   endTime: z.string().optional(),
   location: z.string().min(2).optional(),
-  invigilatorId: z.string().uuid().optional().nullable(),
 })
 
 // GET a single exam by ID
@@ -45,9 +44,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       }
     }
 
-    // For faculty, check if they're the invigilator
-    if (session.user.role === "FACULTY" && exam.invigilatorId !== session.user.id) {
-      return NextResponse.json({ message: "You are not assigned to this exam" }, { status: 403 })
+    // For faculty, check if they're the creator
+    if (session.user.role === "FACULTY" && exam.createdBy !== session.user.id) {
+      return NextResponse.json({ message: "You are not authorized to view this exam" }, { status: 403 })
     }
 
     return NextResponse.json(exam)
@@ -87,9 +86,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     if (validatedData.startTime) updateData.startTime = validatedData.startTime
     if (validatedData.endTime) updateData.endTime = validatedData.endTime
     if (validatedData.location) updateData.location = validatedData.location
-    if (validatedData.invigilatorId !== undefined) {
-      updateData.invigilatorId = validatedData.invigilatorId
-    }
 
     updateData.updatedAt = new Date()
 

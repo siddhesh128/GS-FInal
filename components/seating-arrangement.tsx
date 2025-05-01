@@ -39,8 +39,11 @@ interface SeatingData {
   id: string
   examId: string
   studentId: string
+  subjectId?: string
+  roomId: string
   roomNumber: string
   seatNumber: string
+  invigilatorId?: string
   exam: {
     id: string
     title: string
@@ -54,6 +57,21 @@ interface SeatingData {
     name: string
     email: string
   }
+  subject?: {
+    id: string
+    name: string
+    code: string
+  } | null
+  invigilator?: {
+    id: string
+    name: string
+    email: string
+  }
+  subjectSchedule?: {
+    date: string
+    startTime: string
+    endTime: string
+  } | null
 }
 
 interface SeatingArrangementProps {
@@ -268,10 +286,12 @@ export function SeatingArrangement({ data, userRole }: SeatingArrangementProps) 
             <TableRow>
               <TableHead>Exam</TableHead>
               {userRole === "ADMIN" && <TableHead>Student</TableHead>}
+              <TableHead>Subject</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Time</TableHead>
               <TableHead>Room</TableHead>
               <TableHead>Seat</TableHead>
+              <TableHead>Invigilator</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -279,10 +299,22 @@ export function SeatingArrangement({ data, userRole }: SeatingArrangementProps) 
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.exam.title}</TableCell>
                 {userRole === "ADMIN" && <TableCell>{item.student?.name}</TableCell>}
-                <TableCell>{format(new Date(item.exam.date), "PPP")}</TableCell>
-                <TableCell>{`${item.exam.startTime} - ${item.exam.endTime}`}</TableCell>
+                <TableCell>
+                  {item.subject ? `${item.subject.name} (${item.subject.code})` : "N/A"}
+                </TableCell>
+                <TableCell>
+                  {item.subjectSchedule 
+                    ? format(new Date(item.subjectSchedule.date), "PPP")
+                    : format(new Date(item.exam.date), "PPP")}
+                </TableCell>
+                <TableCell>
+                  {item.subjectSchedule 
+                    ? `${item.subjectSchedule.startTime} - ${item.subjectSchedule.endTime}`
+                    : `${item.exam.startTime} - ${item.exam.endTime}`}
+                </TableCell>
                 <TableCell>{item.roomNumber}</TableCell>
                 <TableCell>{item.seatNumber}</TableCell>
+                <TableCell>{item.invigilator ? item.invigilator.name : "Not assigned"}</TableCell>
               </TableRow>
             ))}
           </TableBody>

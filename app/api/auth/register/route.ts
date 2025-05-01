@@ -1,15 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { hash } from "bcryptjs"
 import { z } from "zod"
 
 import { db } from "@/lib/db"
 import { pendingRegistrations } from "@/lib/db/schema"
-import { hashPassword } from "@/lib/auth"
 
 const registerSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  password: z.string().min(6),
-  verified: z.boolean().optional(),
+  name: z.string().min(2, { message: "Name must be at least 2 characters long" }),
+  email: z.string().email({ message: "Invalid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters long" }),
+  department: z.string().optional(),
+  year: z.enum(["FE", "SE", "TE", "BE"]).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -17,7 +18,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = registerSchema.parse(body)
 
-    // Check if user with email already exists
+    // Check if user already exists as pending registration
+    const existingPending = await db.query.pendingRegistrations.findFirst({
+      where: (pendingRegistrations, { eq }) => eq(pendingRegistrations.email, validatedData.email),
+    })
+
+    if (existingPending) {
+      return NextResponse.json({ message: "A registration with this email is already pending" }, { status: 409 })
+    }
+
+    // Check if user already exists in users table
     const existingUser = await db.query.users.findFirst({
       where: (users, { eq }) => eq(users.email, validatedData.email),
     })
@@ -26,17 +36,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "User with this email already exists" }, { status: 409 })
     }
 
-    // Check if there's already a pending registration with this email
-    const existingPendingRegistration = await db.query.pendingRegistrations.findFirst({
-      where: (pendingRegistrations, { eq }) => eq(pendingRegistrations.email, validatedData.email),
-    })
-
-    if (existingPendingRegistration) {
-      return NextResponse.json({ message: "Registration with this email is already pending approval" }, { status: 409 })
-    }
-
     // Hash password
-    const hashedPassword = await hashPassword(validatedData.password)
+    const hashedPassword = await hash(validatedData.password, 10)
 
     // Create pending registration
     const newPendingRegistration = await db
@@ -44,11 +45,25 @@ export async function POST(request: NextRequest) {
       .values({
         name: validatedData.name,
         email: validatedData.email,
-        password: hashedPassword, // Store the hashed password
+        password: hashedPassword,
+        department: validatedData.department || null,
+        year: validatedData.year || null,
       })
-      .returning()
+      .returning({
+        id: pendingRegistrations.id,
+        name: pendingRegistrations.name,
+        email: pendingRegistrations.email,
+        createdAt: pendingRegistrations.createdAt,
+      })
 
-    return NextResponse.json({ message: "Registration submitted successfully and pending approval" }, { status: 201 })
+    return NextResponse.json(
+      {
+        success: true,
+        user: newPendingRegistration[0],
+        message: "Registration submitted successfully. Approval is pending.",
+      },
+      { status: 201 }
+    )
   } catch (error) {
     console.error("Registration error:", error)
 
@@ -56,6 +71,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Invalid input data", errors: error.errors }, { status: 400 })
     }
 
-    return NextResponse.json({ message: "An error occurred during registration" }, { status: 500 })
+    return NextResponse.json({ message: "Registration failed" }, { status: 500 })
   }
 }

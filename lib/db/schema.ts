@@ -5,6 +5,7 @@ import { boolean, integer, pgEnum, pgTable, primaryKey, text, timestamp, uuid } 
 export const userRoleEnum = pgEnum("user_role", ["ADMIN", "FACULTY", "STUDENT"])
 export const registrationStatusEnum = pgEnum("registration_status", ["PENDING", "APPROVED", "REJECTED"])
 export const attendanceStatusEnum = pgEnum("attendance_status", ["PRESENT", "ABSENT", "LATE"])
+export const yearEnum = pgEnum("year", ["FE", "SE", "TE", "BE"])
 
 // Users table
 export const users = pgTable("users", {
@@ -13,6 +14,8 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   role: userRoleEnum("role").notNull().default("STUDENT"),
+  department: text("department"),
+  year: yearEnum("year"),
   verified: boolean("verified").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -41,6 +44,7 @@ export const subjects = pgTable("subjects", {
 // Subject relations
 export const subjectsRelations = relations(subjects, ({ many }) => ({
   examSubjects: many(examSubjects),
+  subjectSchedules: many(subjectSchedules),
 }))
 
 // Buildings table
@@ -90,7 +94,7 @@ export const exams = pgTable("exams", {
   startTime: text("start_time").notNull(),
   endTime: text("end_time").notNull(),
   location: text("location"),
-  invigilatorId: uuid("invigilator_id").references(() => users.id, { onDelete: "set null" }),   createdBy: uuid("created_by")
+  createdBy: uuid("created_by")
     .notNull()
     .references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -141,6 +145,7 @@ export const examSubjectsRelations = relations(examSubjects, ({ one }) => ({
 export const enrollments = pgTable(
   "enrollments",
   {
+    id: uuid("id").defaultRandom().primaryKey(), // Added a unique ID field
     examId: uuid("exam_id")
       .notNull()
       .references(() => exams.id, { onDelete: "cascade" }),
@@ -148,14 +153,11 @@ export const enrollments = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     enrolledAt: timestamp("enrolled_at").defaultNow().notNull(),
-  },
-  (t) => ({
-    pk: primaryKey({ columns: [t.examId, t.studentId] }),
-  }),
+  }
 )
 
 // Enrollment relations
-export const enrollmentsRelations = relations(enrollments, ({ one }) => ({
+export const enrollmentsRelations = relations(enrollments, ({ one, many }) => ({
   exam: one(exams, {
     fields: [enrollments.examId],
     references: [exams.id],
@@ -163,6 +165,41 @@ export const enrollmentsRelations = relations(enrollments, ({ one }) => ({
   student: one(users, {
     fields: [enrollments.studentId],
     references: [users.id],
+  }),
+  subjectSchedules: many(subjectSchedules),
+}))
+
+// Subject Schedules table - stores subject-specific dates and times for exams
+export const subjectSchedules = pgTable("subject_schedules", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  examId: uuid("exam_id") // Added examId field
+    .notNull()
+    .references(() => exams.id, { onDelete: "cascade" }),
+  enrollmentId: uuid("enrollment_id")
+    .references(() => enrollments.id, { onDelete: "cascade" }),
+  subjectId: uuid("subject_id")
+    .notNull()
+    .references(() => subjects.id, { onDelete: "cascade" }),
+  date: timestamp("date").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+})
+
+// Subject Schedules relations
+export const subjectSchedulesRelations = relations(subjectSchedules, ({ one }) => ({
+  exam: one(exams, {
+    fields: [subjectSchedules.examId],
+    references: [exams.id],
+  }),
+  enrollment: one(enrollments, {
+    fields: [subjectSchedules.enrollmentId],
+    references: [enrollments.id],
+  }),
+  subject: one(subjects, {
+    fields: [subjectSchedules.subjectId],
+    references: [subjects.id],
   }),
 }))
 
@@ -180,6 +217,7 @@ export const seatingArrangements = pgTable("seating_arrangements", {
     .notNull()
     .references(() => rooms.id, { onDelete: "cascade" }),
   seatNumber: text("seat_number").notNull(),
+  invigilatorId: uuid("invigilator_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 })
@@ -201,6 +239,10 @@ export const seatingArrangementsRelations = relations(seatingArrangements, ({ on
   room: one(rooms, {
     fields: [seatingArrangements.roomId],
     references: [rooms.id],
+  }),
+  invigilator: one(users, {
+    fields: [seatingArrangements.invigilatorId],
+    references: [users.id],
   }),
 }))
 
@@ -268,6 +310,8 @@ export const pendingRegistrations = pgTable("pending_registrations", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
+  department: text("department"),
+  year: yearEnum("year"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 })
 

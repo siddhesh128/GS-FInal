@@ -60,6 +60,13 @@ export async function GET(request: NextRequest) {
             building: true,
           },
         },
+        invigilator: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+          }
+        }
       },
       offset,
       limit: pageSize,
@@ -67,6 +74,38 @@ export async function GET(request: NextRequest) {
     })
 
     let seatingData = await query
+    
+    // Get subject-specific schedules for the fetched exams
+    const examIds = [...new Set(seatingData.map(sa => sa.examId))]
+    const subjectIds = [...new Set(seatingData.filter(sa => sa.subjectId).map(sa => sa.subjectId as string))]
+    
+    // Fetch all relevant subject schedules
+    const subjectSchedules = examIds.length > 0 ? await db.query.subjectSchedules.findMany({
+      where: (ss, { and, inArray }) => 
+        and(
+          inArray(ss.examId, examIds),
+          subjectIds.length > 0 ? inArray(ss.subjectId, subjectIds) : undefined
+        )
+    }) : []
+    
+    // Enhance seating data with subject schedule information
+    seatingData = seatingData.map(arrangement => {
+      // Find subject schedule if available
+      const schedule = arrangement.subjectId ? 
+        subjectSchedules.find(ss => 
+          ss.examId === arrangement.examId && 
+          ss.subjectId === arrangement.subjectId
+        ) : null
+      
+      return {
+        ...arrangement,
+        subjectSchedule: schedule ? {
+          date: schedule.date,
+          startTime: schedule.startTime,
+          endTime: schedule.endTime
+        } : null
+      }
+    })
 
     // Filter by building ID if provided
     if (buildingId) {

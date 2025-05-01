@@ -40,12 +40,16 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         email: registration.email,
         password: registration.password, // Password is already hashed
         role: "STUDENT",
+        department: registration.department,
+        year: registration.year,
       })
       .returning({
         id: users.id,
         name: users.name,
         email: users.email,
         role: users.role,
+        department: users.department,
+        year: users.year,
       })
 
     // Delete the pending registration

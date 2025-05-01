@@ -24,6 +24,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       where: eq(seatingArrangements.id, params.id),
       with: {
         exam: true,
+        subject: true,
         student:
           session.user.role === "ADMIN"
             ? {
@@ -35,6 +36,18 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
                 },
               }
             : undefined,
+        invigilator: {
+          columns: {
+            id: true,
+            name: true,
+            email: true,
+          }
+        },
+        room: {
+          with: {
+            building: true
+          }
+        }
       },
     })
 
@@ -46,8 +59,27 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     if (session.user.role === "STUDENT" && seating.studentId !== session.user.id) {
       return NextResponse.json({ message: "You can only view your own seating arrangements" }, { status: 403 })
     }
+    
+    // Get subject schedule if available
+    let subjectSchedule = null;
+    if (seating.subjectId) {
+      subjectSchedule = await db.query.subjectSchedules.findFirst({
+        where: (ss, { and, eq }) => 
+          and(eq(ss.examId, seating.examId), eq(ss.subjectId, seating.subjectId as string)),
+      });
+    }
+    
+    // Add subject schedule to the response
+    const enrichedSeating = {
+      ...seating,
+      subjectSchedule: subjectSchedule ? {
+        date: subjectSchedule.date,
+        startTime: subjectSchedule.startTime,
+        endTime: subjectSchedule.endTime
+      } : null
+    };
 
-    return NextResponse.json(seating)
+    return NextResponse.json(enrichedSeating)
   } catch (error) {
     console.error("Error fetching seating arrangement:", error)
     return NextResponse.json({ message: "An error occurred while fetching the seating arrangement" }, { status: 500 })
