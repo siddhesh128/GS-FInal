@@ -99,8 +99,6 @@ export async function GET(request: NextRequest) {
         startTime: enrollment.exam.startTime,
         endTime: enrollment.exam.endTime,
         location: enrollment.exam.location || "TBD",
-        roomNumber: seating?.room?.roomNumber || "Not assigned",
-        seatNumber: seating?.seatNumber || "Not assigned",
         status: seating ? "Ready for download" : "Pending seating assignment",
         subjects: subjects
       };

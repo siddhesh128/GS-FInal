@@ -95,7 +95,7 @@ export async function GET(
       where: (ss, { eq }) => eq(ss.examId, examId),
     });
     
-    // Format subjects with their schedules for the hall ticket
+    // Format subjects with their schedules for the hall ticket (without seating details)
     const subjectsForHallTicket = examSubjectsData.map(es => {
       // Find schedule for this subject if exists
       const schedule = subjectSchedulesData.find(
@@ -105,13 +105,6 @@ export async function GET(
       return {
         subjectName: es.subject.name,
         subjectCode: es.subject.code,
-        roomNumber: seating.room.roomNumber,
-        buildingName: seating.room.building?.name || "Main Building",
-        buildingNumber: seating.room.building?.number || "1",
-        floor: seating.room.floor || "Ground Floor",
-        seatNumber: seating.seatNumber,
-        invigilatorName: seating.invigilator?.name || "TBD",
-        invigilatorEmail: seating.invigilator?.email || "",
         date: schedule ? new Date(schedule.date) : new Date(enrollment.exam.date),
         startTime: schedule ? schedule.startTime : enrollment.exam.startTime,
         endTime: schedule ? schedule.endTime : enrollment.exam.endTime,
@@ -124,13 +117,11 @@ export async function GET(
       studentName: enrollment.student.name,
       studentId: enrollment.studentId,
       examTitle: enrollment.exam.title,
-      courseCode: enrollment.exam.description || "No Code", // Using description as courseCode
+      courseCode: enrollment.exam.description || "No Code",
       date: new Date(enrollment.exam.date),
       startTime: enrollment.exam.startTime,
       endTime: enrollment.exam.endTime,
       location: enrollment.exam.location || "TBD",
-      roomNumber: seating.room.roomNumber,
-      seatNumber: seating.seatNumber,
       subjects: subjectsForHallTicket,
     }
 
