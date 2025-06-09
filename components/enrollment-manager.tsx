@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
-import { BookOpen, Calendar, Clock, PlusCircle, Trash2, UserPlus, UsersRound } from "lucide-react"
+import { BookOpen, Calendar, Clock, PlusCircle, Trash2, UsersRound } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -21,7 +21,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useToast } from "@/components/ui/use-toast"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 interface Subject {
@@ -437,174 +436,13 @@ export function EnrollmentManager({ enrollments: initialEnrollments }: Enrollmen
               <DialogDescription>Enroll students in an exam</DialogDescription>
             </DialogHeader>
             
-            <Tabs defaultValue="individual" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="individual">
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Individual
-                </TabsTrigger>
-                <TabsTrigger value="batch">
-                  <UsersRound className="mr-2 h-4 w-4" />
-                  Batch
-                </TabsTrigger>
-              </TabsList>
+            <div className="w-full">
+              <div className="flex items-center space-x-2 mb-4">
+                <UsersRound className="h-4 w-4" />
+                <span className="font-medium">Batch Enrollment</span>
+              </div>
               
-              <TabsContent value="individual" className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="bulkMode"
-                    checked={bulkMode}
-                    onCheckedChange={(checked) => setBulkMode(checked as boolean)}
-                  />
-                  <Label htmlFor="bulkMode">Enroll multiple students</Label>
-                </div>
-
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="examId" className="text-right">
-                    Exam
-                  </Label>
-                  <Select onValueChange={(value) => handleSelectChange("examId", value)}>
-                    <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Select exam" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {exams.map((exam) => (
-                        <SelectItem key={exam.id} value={exam.id}>
-                          {exam.title} - {exam.courseCode}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {selectedExamSubjects.length > 0 && (
-                  <div className="flex items-center space-x-2 my-2">
-                    <Checkbox
-                      id="showSubjectScheduling"
-                      checked={showSubjectScheduling}
-                      onCheckedChange={(checked) => setShowSubjectScheduling(checked as boolean)}
-                    />
-                    <Label htmlFor="showSubjectScheduling">Configure subject-specific schedules</Label>
-                  </div>
-                )}
-
-                {showSubjectScheduling && selectedExamSubjects.length > 0 && (
-                  <div className="border rounded-md p-2">
-                    <Accordion type="multiple" className="w-full">
-                      {selectedExamSubjects.map((subject) => {
-                        const schedule = subjectSchedules.find(s => s.subjectId === subject.id);
-                        if (!schedule) return null;
-                        
-                        return (
-                          <AccordionItem value={subject.id} key={subject.id}>
-                            <AccordionTrigger className="text-sm">
-                              <div className="flex items-center">
-                                <BookOpen className="h-4 w-4 mr-2" />
-                                {subject.name} ({subject.code})
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="space-y-3">
-                              <div className="grid grid-cols-4 items-center gap-2">
-                                <Label htmlFor={`${subject.id}-date`} className="text-right text-xs">
-                                  Date
-                                </Label>
-                                <div className="col-span-3 flex items-center">
-                                  <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
-                                  <Input
-                                    id={`${subject.id}-date`}
-                                    type="date"
-                                    value={schedule.date}
-                                    onChange={(e) => handleSubjectScheduleChange(subject.id, 'date', e.target.value)}
-                                    className="h-8 text-sm"
-                                  />
-                                </div>
-                              </div>
-                              
-                              <div className="grid grid-cols-4 items-center gap-2">
-                                <Label htmlFor={`${subject.id}-start`} className="text-right text-xs">
-                                  Start
-                                </Label>
-                                <div className="col-span-3 flex items-center">
-                                  <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                                  <Input
-                                    id={`${subject.id}-start`}
-                                    type="time"
-                                    value={schedule.startTime}
-                                    onChange={(e) => handleSubjectScheduleChange(subject.id, 'startTime', e.target.value)}
-                                    className="h-8 text-sm"
-                                  />
-                                </div>
-                              </div>
-                              
-                              <div className="grid grid-cols-4 items-center gap-2">
-                                <Label htmlFor={`${subject.id}-end`} className="text-right text-xs">
-                                  End
-                                </Label>
-                                <div className="col-span-3 flex items-center">
-                                  <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                                  <Input
-                                    id={`${subject.id}-end`}
-                                    type="time"
-                                    value={schedule.endTime}
-                                    onChange={(e) => handleSubjectScheduleChange(subject.id, 'endTime', e.target.value)}
-                                    className="h-8 text-sm"
-                                  />
-                                </div>
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        );
-                      })}
-                    </Accordion>
-                  </div>
-                )}
-
-                {bulkMode ? (
-                  <div className="grid gap-2">
-                    <Label className="mb-2">Select Students</Label>
-                    <div className="border rounded-md h-60 overflow-y-auto p-2">
-                      {students.map((student) => (
-                        <div key={student.id} className="flex items-center space-x-2 py-2">
-                          <Checkbox
-                            id={`student-${student.id}`}
-                            checked={selectedStudents.includes(student.id)}
-                            onCheckedChange={() => toggleStudentSelection(student.id)}
-                          />
-                          <Label htmlFor={`student-${student.id}`}>
-                            {student.name} - {student.department ? `${student.department}` : ""} {student.year ? `(${student.year})` : ""} - {student.email}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="studentId" className="text-right">
-                      Student
-                    </Label>
-                    <Select onValueChange={(value) => handleSelectChange("studentId", value)}>
-                      <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Select student" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {students.map((student) => (
-                          <SelectItem key={student.id} value={student.id}>
-                            {student.name} - {student.department ? `${student.department}` : ""} {student.year ? `(${student.year})` : ""} - {student.email}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                
-                <DialogFooter>
-                  <Button type="submit" onClick={handleCreateEnrollment} disabled={isCreating}>
-                    {isCreating ? "Creating..." : "Create Enrollment"}
-                  </Button>
-                </DialogFooter>
-              </TabsContent>
-              
-              <TabsContent value="batch" className="space-y-4">
+              <div className="space-y-4">
                 <div className="grid gap-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="batchExamId" className="text-right">
@@ -747,8 +585,8 @@ export function EnrollmentManager({ enrollments: initialEnrollments }: Enrollmen
                     {isBatchEnrolling ? "Enrolling..." : "Enroll Department Year"}
                   </Button>
                 </DialogFooter>
-              </TabsContent>
-            </Tabs>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
