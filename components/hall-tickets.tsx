@@ -18,8 +18,6 @@ interface HallTicket {
   startTime: string
   endTime: string
   location: string
-  roomNumber: string
-  seatNumber: string
   status: string
   subjects?: {
     id: string
@@ -131,14 +129,6 @@ export function HallTickets({ tickets }: HallTicketsProps) {
             <div className="flex justify-between">
               <span className="text-sm font-medium">Location:</span>
               <span className="text-sm">{ticket.location}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm font-medium">Room:</span>
-              <span className="text-sm">{ticket.roomNumber}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-sm font-medium">Seat:</span>
-              <span className="text-sm">{ticket.seatNumber}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm font-medium">Status:</span>

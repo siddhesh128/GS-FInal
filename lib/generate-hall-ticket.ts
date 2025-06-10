@@ -1,16 +1,9 @@
 import { jsPDF } from "jspdf"
 import { format } from "date-fns"
 
-interface SubjectSeating {
+interface SubjectInfo {
   subjectName: string
   subjectCode: string
-  roomNumber: string
-  buildingName: string
-  buildingNumber: string
-  floor: string
-  seatNumber: string
-  invigilatorName: string
-  invigilatorEmail: string
   date: Date
   startTime: string
   endTime: string
@@ -26,7 +19,7 @@ interface HallTicketData {
   startTime: string
   endTime: string
   location: string
-  subjects: SubjectSeating[]
+  subjects: SubjectInfo[]
 }
 
 export function generateHallTicket(data: HallTicketData): string {
@@ -84,26 +77,24 @@ export function generateHallTicket(data: HallTicketData): string {
   doc.text(`${data.startTime} - ${data.endTime}`, 80, 135)
   doc.text(data.location, 80, 145)
 
-  // Subject-wise seating details
+  // Subject details (without seating information)
   doc.setFont("helvetica", "bold")
   doc.setFontSize(14)
-  doc.text("Subject-wise Seating Arrangements", 105, 165, { align: "center" })
+  doc.text("Subject Details", 105, 165, { align: "center" })
 
-  // Create a table for subject seating
+  // Create a table for subjects
   doc.setFont("helvetica", "bold")
   doc.setFontSize(10)
   doc.text("Subject", 20, 175)
-  doc.text("Code", 60, 175)
-  doc.text("Building", 85, 175)
-  doc.text("Room", 125, 175)
-  doc.text("Floor", 150, 175)
-  doc.text("Seat", 175, 175)
+  doc.text("Code", 80, 175)
+  doc.text("Date", 120, 175)
+  doc.text("Time", 160, 175)
 
   // Add horizontal line below headers
   doc.setLineWidth(0.2)
   doc.line(20, 177, 190, 177)
 
-  // Add subject seating data
+  // Add subject data (without seating details)
   doc.setFont("helvetica", "normal")
   let yPos = 185
   data.subjects.forEach((subject, index) => {
@@ -115,11 +106,9 @@ export function generateHallTicket(data: HallTicketData): string {
       // Add headers on new page
       doc.setFont("helvetica", "bold")
       doc.text("Subject", 20, yPos)
-      doc.text("Code", 60, yPos)
-      doc.text("Building", 85, yPos)
-      doc.text("Room", 125, yPos)
-      doc.text("Floor", 150, yPos)
-      doc.text("Seat", 175, yPos)
+      doc.text("Code", 80, yPos)
+      doc.text("Date", 120, yPos)
+      doc.text("Time", 160, yPos)
 
       // Add horizontal line below headers
       doc.line(20, yPos + 2, 190, yPos + 2)
@@ -129,19 +118,15 @@ export function generateHallTicket(data: HallTicketData): string {
     }
 
     doc.text(subject.subjectName, 20, yPos)
-    doc.text(subject.subjectCode, 60, yPos)
-    doc.text(`${subject.buildingName} (${subject.buildingNumber})`, 85, yPos)
-    doc.text(subject.roomNumber, 125, yPos)
-    doc.text(subject.floor, 150, yPos)
-    doc.text(subject.seatNumber, 175, yPos)
-
-    // Add subject-specific schedule if available
+    doc.text(subject.subjectCode, 80, yPos)
+    
+    // Show subject-specific schedule if available, otherwise show exam schedule
     if (subject.hasCustomSchedule) {
-      yPos += 10
-      doc.setFont("helvetica", "bold")
-      doc.text("Schedule:", 20, yPos)
-      doc.setFont("helvetica", "normal")
-      doc.text(`${format(subject.date, "PPP")} ${subject.startTime} - ${subject.endTime}`, 60, yPos)
+      doc.text(format(subject.date, "MMM dd"), 120, yPos)
+      doc.text(`${subject.startTime} - ${subject.endTime}`, 160, yPos)
+    } else {
+      doc.text(format(data.date, "MMM dd"), 120, yPos)
+      doc.text(`${data.startTime} - ${data.endTime}`, 160, yPos)
     }
 
     // Add a light line between rows
@@ -168,7 +153,8 @@ export function generateHallTicket(data: HallTicketData): string {
     "3. No electronic devices are allowed in the examination hall.",
     "4. Follow all instructions given by the invigilator.",
     "5. This hall ticket is valid only for the mentioned examination.",
-    "6. Check the subject-specific room and seat number for each exam.",
+    "6. Check your seating arrangement 30 minutes before the exam starts.",
+    "7. Report to the examination center at least 15 minutes before exam time.",
   ]
 
   yPos += 10

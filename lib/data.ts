@@ -77,7 +77,15 @@ export async function getExams(userId: string, role: string) {
           }
         })
       )
-      return examsWithSubjects
+      
+      // Filter out expired exams for students
+      const now = new Date();
+      const activeExams = examsWithSubjects.filter((exam) => {
+        const examDateTime = new Date(`${exam.date.toISOString().split('T')[0]}T${exam.endTime}`);
+        return now <= examDateTime; // Only show exams that haven't ended yet
+      });
+      
+      return activeExams
     }
   } catch (error) {
     console.error("Error fetching exams:", error)
@@ -166,7 +174,7 @@ export async function getSeatingArrangements(userId: string, role: string) {
       });
 
       // Enhance seating data with subject information and schedules
-      return await Promise.all(seatingData.map(async (seating) => {
+      const enhancedData = await Promise.all(seatingData.map(async (seating) => {
         // Get subject information if subjectId exists
         let subject = null;
         let subjectSchedule = null;
@@ -202,6 +210,24 @@ export async function getSeatingArrangements(userId: string, role: string) {
           subjectSchedule,
         };
       }));
+
+      // Filter out expired exams for students
+      const now = new Date();
+      return enhancedData.filter((seating) => {
+        const examDate = seating.subjectSchedule 
+          ? seating.subjectSchedule.date
+          : seating.exam.date;
+        const examTime = seating.subjectSchedule 
+          ? seating.subjectSchedule.endTime
+          : seating.exam.endTime;
+        
+        // Convert date to string if it's a Date object
+        const dateStr = typeof examDate === 'string' ? examDate : examDate.toISOString().split('T')[0];
+        const examDateTime = new Date(`${dateStr}T${examTime}`);
+        
+        // Only show exams that haven't ended yet
+        return now <= examDateTime;
+      });
     }
 
     return []
@@ -262,7 +288,7 @@ export async function getHallTickets(studentId: string) {
             name: es.subject.name,
             code: es.subject.code,
             schedule: schedule ? {
-              date: schedule.date,
+              date: schedule.date.toISOString(),
               startTime: schedule.startTime,
               endTime: schedule.endTime
             } : undefined
@@ -271,25 +297,34 @@ export async function getHallTickets(studentId: string) {
 
         // Use description field in place of courseCode
         return {
+          id: `${enrollment.examId}_${enrollment.studentId}`, // Add composite ID
           examId: enrollment.examId,
           studentId: enrollment.studentId,
           examTitle: enrollment.exam.title,
           courseCode: enrollment.exam.description || "No code", // Using description as courseCode
-          date: enrollment.exam.date,
+          date: enrollment.exam.date.toISOString(),
           startTime: enrollment.exam.startTime,
           endTime: enrollment.exam.endTime,
-          location: enrollment.exam.location,
-          roomNumber: seatingArrangement?.room.roomNumber || "Not assigned",
-          seatNumber: seatingArrangement?.seatNumber || "Not assigned",
-          invigilatorName: seatingArrangement?.invigilator?.name || "Not assigned",
-          invigilatorEmail: seatingArrangement?.invigilator?.email || "",
+          location: enrollment.exam.location || "TBD",
           status: seatingArrangement ? "Ready for download" : "Pending seating assignment",
           subjects: subjects,
         }
       })
     )
 
-    return result
+    // Filter out expired exams for students
+    const now = new Date();
+    const activeHallTickets = result.filter((hallTicket) => {
+      const examDate = hallTicket.date;
+      const examTime = hallTicket.endTime;
+      
+      const examDateTime = new Date(`${examDate.split('T')[0]}T${examTime}`);
+      
+      // Only show hall tickets for exams that haven't ended yet
+      return now <= examDateTime;
+    });
+
+    return activeHallTickets
   } catch (error) {
     console.error("Error fetching hall tickets:", error)
     return []

@@ -65,7 +65,7 @@ export default async function SeatingPage() {
           <h2 className="text-2xl font-bold tracking-tight">Seating Arrangements</h2>
           <p className="text-muted-foreground">
             {session.user.role === "STUDENT"
-              ? "View your assigned seating for upcoming exams"
+              ? "View your assigned seating for upcoming exams. Seating details are available 30 minutes before each exam."
               : "Manage seating arrangements for all exams"}
           </p>
         </div>

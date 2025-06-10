@@ -21,7 +21,9 @@ export default async function HallTicketsPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Hall Tickets</h2>
-        <p className="text-muted-foreground">Download your hall tickets for upcoming examinations</p>
+        <p className="text-muted-foreground">
+          Download your hall tickets for upcoming examinations. Seating arrangements will be available 30 minutes before each exam in the Seating section.
+        </p>
       </div>
       <HallTickets tickets={tickets} />
     </div>
