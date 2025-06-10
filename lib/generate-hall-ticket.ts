@@ -33,70 +33,74 @@ export function generateHallTicket(data: HallTicketData): string {
   // Add title
   doc.text("EXAMINATION HALL TICKET", 105, 20, { align: "center" })
 
-  // Add logo placeholder
-  doc.rect(20, 30, 30, 30)
-  doc.setFontSize(8)
-  doc.text("LOGO", 35, 45, { align: "center" })
-
-  // Add institution name
+  // Add institution name (reduced gap from title)
   doc.setFont("helvetica", "bold")
   doc.setFontSize(14)
-  doc.text("University Examination Department", 105, 40, { align: "center" })
+  doc.text("University Examination Department", 105, 30, { align: "center" })
 
   // Add horizontal line
   doc.setLineWidth(0.5)
-  doc.line(20, 50, 190, 50)
+  doc.line(20, 40, 190, 40)
 
-  // Student details
+  // Student details (smaller font size)
   doc.setFont("helvetica", "normal")
-  doc.setFontSize(12)
-  doc.text("Student Name:", 20, 65)
-  doc.text("Student ID:", 20, 75)
+  doc.setFontSize(10)
+  doc.text("Student Name:", 20, 55)
+  doc.text("Student ID:", 20, 65)
 
   doc.setFont("helvetica", "bold")
-  doc.text(data.studentName, 80, 65)
-  doc.text(data.studentId, 80, 75)
+  doc.setFontSize(10)
+  doc.text(data.studentName, 80, 55)
+  doc.text(data.studentId, 80, 65)
 
   // Exam details
   doc.setFont("helvetica", "bold")
   doc.setFontSize(14)
-  doc.text("Examination Details", 105, 90, { align: "center" })
+  doc.text("Examination Details", 105, 80, { align: "center" })
 
   doc.setFont("helvetica", "normal")
-  doc.setFontSize(12)
-  doc.text("Exam:", 20, 105)
-  doc.text("Course Code:", 20, 115)
-  doc.text("Date:", 20, 125)
-  doc.text("Time:", 20, 135)
-  doc.text("Location:", 20, 145)
+  doc.setFontSize(10)
+  doc.text("Exam:", 20, 95)
+  doc.text("Course Code:", 20, 105)
+  doc.text("Date:", 20, 115)
+  doc.text("Time:", 20, 125)
+  doc.text("Location:", 20, 135)
 
   doc.setFont("helvetica", "bold")
-  doc.text(data.examTitle, 80, 105)
-  doc.text(data.courseCode, 80, 115)
-  doc.text(format(data.date, "PPP"), 80, 125)
-  doc.text(`${data.startTime} - ${data.endTime}`, 80, 135)
-  doc.text(data.location, 80, 145)
+  doc.setFontSize(10)
+  doc.text(data.examTitle, 80, 95)
+  doc.text(data.courseCode, 80, 105)
+  doc.text(format(data.date, "PPP"), 80, 115)
+  doc.text(`${data.startTime} - ${data.endTime}`, 80, 125)
+  doc.text(data.location, 80, 135)
+
+  doc.setFont("helvetica", "bold")
+  doc.text(data.examTitle, 80, 95)
+  doc.text(data.courseCode, 80, 105)
+  doc.text(format(data.date, "PPP"), 80, 115)
+  doc.text(`${data.startTime} - ${data.endTime}`, 80, 125)
+  doc.text(data.location, 80, 135)
 
   // Subject details (without seating information)
   doc.setFont("helvetica", "bold")
   doc.setFontSize(14)
-  doc.text("Subject Details", 105, 165, { align: "center" })
+  doc.text("Subject Details", 105, 155, { align: "center" })
 
   // Create a table for subjects
   doc.setFont("helvetica", "bold")
   doc.setFontSize(10)
-  doc.text("Subject", 20, 175)
-  doc.text("Code", 80, 175)
-  doc.text("Date", 120, 175)
-  doc.text("Time", 160, 175)
+  doc.text("Subject", 20, 165)
+  doc.text("Code", 80, 165)
+  doc.text("Date", 120, 165)
+  doc.text("Time", 160, 165)
 
   // Add horizontal line below headers
   doc.setLineWidth(0.2)
-  doc.line(20, 177, 190, 177)
+  doc.line(20, 167, 190, 167)
 
   // Add subject data (without seating details)
   doc.setFont("helvetica", "normal")
-  let yPos = 185
+  let yPos = 175
   data.subjects.forEach((subject, index) => {
     // Add a new page if we're running out of space
     if (yPos > 270) {
