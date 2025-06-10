@@ -26,6 +26,10 @@ const generateSeatingSchema = z.object({
 
 // Helper function to create a deterministic but unpredictable shuffle based on exam and subject
 function createSubjectShuffle(examId: string, subjectId: string, enrollments: any[]) {
+  if (enrollments.length === 0) {
+    return enrollments;
+  }
+  
   // Create a seed based on exam and subject IDs
   const seed = examId + subjectId;
   let hash = 0;
@@ -35,13 +39,31 @@ function createSubjectShuffle(examId: string, subjectId: string, enrollments: an
     hash = hash & hash; // Convert to 32bit integer
   }
   
+  // Make sure hash is positive
+  hash = Math.abs(hash);
+  
   // Use the hash to create a pseudo-random but deterministic shuffle
-  const shuffled = [...enrollments];
+  const shuffled = [...enrollments]; // Create a copy
+  
+  // Fisher-Yates shuffle with deterministic pseudo-random numbers
   for (let i = shuffled.length - 1; i > 0; i--) {
     // Use hash-based pseudo-random number generation
-    hash = (hash * 9301 + 49297) % 233280;
-    const j = Math.floor((hash / 233280) * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    hash = Math.abs((hash * 9301 + 49297) % 233280);
+    const j = hash % (i + 1); // Simpler modulo operation to ensure valid index
+    
+    // Swap elements
+    if (j < shuffled.length && i < shuffled.length) {
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+  }
+  
+  // Verify all elements are still valid
+  const hasUndefined = shuffled.some(item => item === undefined || item === null);
+  if (hasUndefined || shuffled.length !== enrollments.length) {
+    console.error(`Shuffle error: Original ${enrollments.length} items, shuffled ${shuffled.length} items, has undefined: ${hasUndefined}`);
+    console.error('Original enrollments:', enrollments);
+    console.error('Shuffled enrollments:', shuffled);
+    return enrollments; // Return original array if shuffle failed
   }
   
   return shuffled;
@@ -63,6 +85,8 @@ export async function POST(request: NextRequest) {
     const examEnrollments = await db.query.enrollments.findMany({
       where: (enrollments, { eq }) => eq(enrollments.examId, validatedData.examId),
     })
+
+    console.log(`Found ${examEnrollments.length} total enrollments:`, examEnrollments.map(e => ({ examId: e.examId, studentId: e.studentId })))
 
     if (examEnrollments.length === 0) {
       return NextResponse.json({ message: "No students enrolled in this exam" }, { status: 400 })
@@ -143,8 +167,10 @@ export async function POST(request: NextRequest) {
         }
       });
       subjects = examSubjects.map(es => es.subjectId);
+      console.log(`Found ${subjects.length} subjects for exam:`, subjects);
     } else if (validatedData.subjectId) {
       subjects = [validatedData.subjectId];
+      console.log(`Single subject mode:`, subjects);
     }
 
     console.log(`Generating seating for ${subjects.length} subjects with anti-malpractice measures`);
@@ -179,23 +205,33 @@ export async function POST(request: NextRequest) {
     // Keep track of assigned invigilators for each room to assign new ones if needed
     const roomsWithNeedForRandomInvigilator = new Set<string>();
     
-    // For each subject, create completely different seating arrangements
+    // IMPORTANT: Create seating for EVERY enrolled student for EVERY exam subject
+    // This ensures complete coverage regardless of subject schedules
+    console.log(`Creating seating arrangements for ${examEnrollments.length} students across ${subjects.length} subjects`);
+    console.log(`Total expected seating arrangements: ${examEnrollments.length * subjects.length}`);
+    
+    // For each subject, create completely different seating arrangements for ALL enrolled students
     for (let subjectIndex = 0; subjectIndex < subjects.length; subjectIndex++) {
       const subjectId = subjects[subjectIndex];
       
-      // Create a deterministic but different shuffle for each subject
+      // Create a deterministic but different shuffle for each subject using ALL enrollments
       const subjectShuffledEnrollments = createSubjectShuffle(
         validatedData.examId, 
         subjectId, 
         examEnrollments
       );
       
-      console.log(`Subject ${subjectIndex + 1}: Processing ${subjectShuffledEnrollments.length} enrollments`);
+      console.log(`Subject ${subjectIndex + 1}: Processing ${subjectShuffledEnrollments.length} enrollments for subject ${subjectId}`);
       
       // Validate that we have valid enrollments
       if (subjectShuffledEnrollments.length === 0) {
-        console.log(`No enrollments found for subject ${subjectId}`);
+        console.warn(`No enrollments found for subject ${subjectId}`);
         continue;
+      }
+      
+      // Verify we're processing ALL exam enrollments for this subject
+      if (subjectShuffledEnrollments.length !== examEnrollments.length) {
+        console.error(`MISMATCH: Expected ${examEnrollments.length} enrollments but got ${subjectShuffledEnrollments.length} for subject ${subjectId}`);
       }
       
       // Use different room allocation strategy for each subject
@@ -215,9 +251,23 @@ export async function POST(request: NextRequest) {
       let seatCounter = 1;
       let roomChangeCounter = 0;
       
+      console.log(`Subject ${subjectIndex + 1}: Processing ${subjectShuffledEnrollments.length} enrollments`);
+      
+      // Validate that we have valid enrollments
+      if (subjectShuffledEnrollments.length === 0) {
+        console.warn(`No enrollments found for subject ${subjectId}`);
+        continue;
+      }
+      
       // Process enrollments for this subject
       for (let enrollmentIndex = 0; enrollmentIndex < subjectShuffledEnrollments.length; enrollmentIndex++) {
         const enrollment = subjectShuffledEnrollments[enrollmentIndex];
+        
+        // Add safety check for undefined enrollment
+        if (!enrollment || !enrollment.examId || !enrollment.studentId) {
+          console.warn(`Invalid enrollment at index ${enrollmentIndex}:`, enrollment);
+          continue;
+        }
         
         // Safety check to ensure enrollment exists
         if (!enrollment) {
@@ -301,6 +351,37 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`Generated ${seatingData.length} seating assignments`);
+    console.log(`Expected: ${examEnrollments.length * subjects.length} seating assignments`);
+    console.log(`Match: ${seatingData.length === examEnrollments.length * subjects.length ? 'YES' : 'NO'}`);
+    
+    // Log breakdown by student and subject for debugging
+    const studentSubjectCount = new Map<string, Set<string>>();
+    seatingData.forEach(seat => {
+      if (!studentSubjectCount.has(seat.studentId)) {
+        studentSubjectCount.set(seat.studentId, new Set());
+      }
+      studentSubjectCount.get(seat.studentId)!.add(seat.subjectId);
+    });
+    
+    console.log('Seating breakdown by student:');
+    for (const [studentId, subjectSet] of studentSubjectCount.entries()) {
+      console.log(`Student ${studentId}: ${subjectSet.size} subjects - [${Array.from(subjectSet).join(', ')}]`);
+    }
+    
+    // Verify each student has all subjects
+    let allStudentsHaveAllSubjects = true;
+    for (const [studentId, subjectSet] of studentSubjectCount.entries()) {
+      if (subjectSet.size !== subjects.length) {
+        console.error(`MISSING SUBJECTS for Student ${studentId}: Expected ${subjects.length}, got ${subjectSet.size}`);
+        allStudentsHaveAllSubjects = false;
+      }
+    }
+    
+    console.log(`All students have all subjects: ${allStudentsHaveAllSubjects ? 'YES' : 'NO'}`);
+    
+    if (!allStudentsHaveAllSubjects) {
+      console.error('ERROR: Some students are missing seating arrangements for some subjects!');
+    }
 
     // Insert new seating arrangements
     const createdSeating = await db.insert(seatingArrangements).values(seatingData).returning()
