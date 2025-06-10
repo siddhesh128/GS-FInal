@@ -46,12 +46,17 @@ export default async function SeatingPage() {
         roomNumber: roomData?.roomNumber || "Unknown",
         invigilator: invigilatorData ?? undefined, // Map null to undefined
         invigilatorId: arrangement.invigilatorId ?? undefined, // Map null to undefined
+        subjectId: arrangement.subjectId ?? undefined, // Map null to undefined
         exam: {
           ...arrangement.exam,
           // Ensure location is never null to match SeatingData type
           location: arrangement.exam.location || "Not specified",
           date: arrangement.exam.date.toISOString(),
         },
+        subjectSchedule: arrangement.subjectSchedule ? {
+          ...arrangement.subjectSchedule,
+          date: arrangement.subjectSchedule.date.toISOString(),
+        } : arrangement.subjectSchedule,
         createdAt: arrangement.createdAt.toISOString(),
         updatedAt: arrangement.updatedAt.toISOString(),
       }
